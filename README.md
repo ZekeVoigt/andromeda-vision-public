@@ -4,6 +4,10 @@ Claude Code answers in 3D. Ask how something works, what changed, or what the pl
 halftone world opens beside the chat. You walk it with ← →; Claude's notes sit in the margin and
 point at each part. Click any part to ask about it. Double-click empty space to message Claude.
 
+Why: [From text to visual: agents should show, not tell](https://ai-andromeda.com/reports/text-to-visual/).
+
+![A Vision world beside the chat](https://ai-andromeda.com/reports/text-to-visual/overview.webp)
+
 ## Install
 
 **1. The plugin** (Claude Code):
