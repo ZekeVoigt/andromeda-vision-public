@@ -1,0 +1,879 @@
+<!-- see-talk skin, put into a session's pages by publish.py --session. The panel is a canvas:
+     the world fills it on the plain background, dots drift behind it, and no chat.
+     Form (publish.py --form, else 1 stop = image, more = steps):
+       image  one picture, one quiet line, nothing to press
+       steps  the same, plus a small ← n/N → at the bottom and each stop's sentence
+       spec   steps, with each stop's points shown too
+     A click on a part still asks Claude about it (through the hidden dock); a small switcher
+     in the corner asks for the same answer in another form. -->
+<script>try { document.documentElement.dataset.theme = localStorage.getItem('see-theme') || 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }</script>
+<script>window.SEE_PANE = () => { // the world's share of the panel, always centered; my words take the margin beside it (or below a tall panel)
+  if ('{{FORM}}' === 'image') return 1; const W = innerWidth, a = W / innerHeight;
+  if (a < 0.95) return { x: 0, w: 1, h: 0.6 };
+  const side = Math.max(240, Math.min(400, W * 0.25)), x = Math.min(0.3, side / W);
+  return { x, w: 1 - 2 * x, h: 1 }; };</script>
+<style>
+html, body { height: 100%; overflow: hidden; background: var(--bg) !important; }
+main { max-width: none !important; padding: 0 !important; margin: 0 !important; }
+main > header h1, .status, .hint, .summary, #see-dock, #play { display: none !important; }
+.stage { display: block !important; margin: 0 !important; }
+.stage > div:not(.viz) { display: none !important; }
+.viz { position: fixed !important; inset: 0 !important; width: auto !important; height: auto !important; max-width: none !important; aspect-ratio: auto !important; z-index: 1; margin: 0; }
+#see-cap { position: fixed; left: 18px; top: 14px; z-index: 3; pointer-events: none; width: min(560px, calc(100% - 200px)); }
+#see-cap { display: none !important; }
+#see-say { display: none !important; }
+body.form-steps #see-cap .c, body.form-spec #see-cap .c { display: none; }
+#see-cap .c { font-size: 14.5px; font-weight: 500; color: var(--ink); letter-spacing: -0.005em; }
+#see-cap .d { font-size: 13.5px; color: var(--soft); margin-top: 4px; line-height: 1.5; }
+#see-cap ul { margin: 6px 0 0; padding-left: 16px; font-size: 13px; color: var(--soft); }
+#see-cap code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: 0 4px; border-radius: 3px; }
+main > header { position: fixed; right: 14px; bottom: 60px; z-index: 6; display: none !important; }
+body.form-steps main > header, body.form-spec main > header { display: flex !important; }
+main > header .controls { align-items: center; gap: 10px; }
+main > header .controls button { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+#see-n { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; order: 1; }
+#prev { order: 0; } #next { order: 2; }
+#see-think { position: fixed; bottom: 26px; right: 22px; z-index: 4; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity .3s; }
+#see-think.on { opacity: 1; animation: see-breathe 1.4s ease-in-out infinite; }
+@keyframes see-breathe { 50% { transform: scale(1.8); opacity: .35; } }
+#see-talk { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; width: min(680px, calc(100% - 28px)); display: flex; flex-direction: column; gap: 8px; }
+#see-say { font-size: 14.5px; line-height: 1.5; color: var(--ink); background: color-mix(in srgb, var(--bg) 82%, transparent); border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(3px); }
+#see-say:empty { display: none; }
+#see-say p { margin: 0 0 4px; } #see-say p:last-child { margin: 0; }
+#see-say ul { margin: 2px 0 4px; padding-left: 18px; } #see-say li { margin: 1px 0; }
+#see-say .you { color: var(--muted); font-size: 13px; margin-bottom: 4px; }
+#see-btns { display: flex; flex-wrap: wrap; gap: 6px; }
+#see-btns:empty { display: none; }
+#see-btns button { font: inherit; font-size: 13.5px; color: var(--ink); background: color-mix(in srgb, var(--bg) 80%, transparent); border: 1px solid var(--accent); border-radius: 999px; padding: 5px 14px; cursor: pointer; }
+#see-btns button:hover { background: var(--accent); color: var(--bg); }
+#see-line { display: flex; gap: 6px; }
+#see-line textarea { flex: 1; resize: none; font: inherit; font-size: 14px; color: var(--ink); background: color-mix(in srgb, var(--bg) 75%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 7px 11px; min-height: 36px; max-height: 120px; outline: none; }
+#see-line textarea:focus { border-color: var(--muted); }
+/* a question card: like Claude Code's clarify prompt, on the canvas */
+#see-ask { background: color-mix(in srgb, var(--bg) 88%, transparent); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; backdrop-filter: blur(4px); }
+#see-ask:empty { display: none; }
+#see-ask .q { font-size: 15px; font-weight: 600; margin-bottom: 8px; }
+#see-ask .o { display: flex; gap: 10px; align-items: flex-start; padding: 7px 9px; border-radius: 9px; cursor: pointer; border: 1px solid transparent; }
+#see-ask .o:hover { background: color-mix(in srgb, var(--ink) 6%, transparent); }
+#see-ask .o.on { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+#see-ask .o .k { flex: none; width: 20px; height: 20px; border-radius: 6px; border: 1px solid var(--muted); font-size: 11.5px; display: grid; place-items: center; color: var(--soft); margin-top: 1px; }
+#see-ask .o.on .k { border-color: var(--accent); color: var(--accent); }
+#see-ask .o .l { font-size: 14px; font-weight: 500; }
+#see-ask .o .d { font-size: 12.5px; color: var(--soft); line-height: 1.4; }
+#see-ask .o.rec .l::after { content: "  recommended"; font-size: 11px; color: var(--accent); font-weight: 400; }
+#see-ask .other { margin: 6px 0 0 39px; display: flex; gap: 6px; }
+#see-ask .other input { flex: 1; font: inherit; font-size: 13.5px; color: var(--ink); background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 4px 2px; outline: none; }
+#see-ask .go { margin-top: 10px; display: flex; justify-content: flex-end; }
+#see-ask .go button { font: inherit; font-size: 13.5px; color: var(--bg); background: var(--accent); border: 0; border-radius: 999px; padding: 6px 16px; cursor: pointer; }
+#see-ask .go button:disabled { opacity: .35; cursor: default; }
+
+/* Claude Code, on a canvas: the corner mark, the live work, the feed of tool rows */
+#cc-mark { position: fixed; top: 12px; right: 16px; z-index: 6; display: flex; align-items: center; gap: 8px; font-size: 12.5px; font-weight: 600; letter-spacing: .01em; color: var(--ink); }
+#cc-mark i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); transition: background .3s; }
+body.cc-turn #cc-mark i { background: var(--accent); animation: see-breathe 1.4s ease-in-out infinite; }
+@keyframes see-breathe { 50% { transform: scale(1.8); opacity: .35; } }
+.viz { transition: opacity .5s; }
+body.cc-busy:not(.cc-engaged) .viz { opacity: .14; }
+body.cc-engaged #cc-work { left: 14px; right: auto; top: auto; bottom: 14px; transform: none; align-items: flex-start; gap: 4px; }
+body.cc-engaged #cc-work canvas { width: 120px !important; }
+body.cc-engaged #cc-work .w { display: none !important; }
+body.cc-engaged #cc-work .v { font-size: 12px; }
+body.cc-engaged #cc-work .t { font-size: 11px; max-width: 220px; }
+body.cc-engaged #cc-feed { opacity: 0 !important; }
+#cc-work { position: fixed; z-index: 3; left: 50%; top: 44%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 10px; opacity: 0; transition: opacity .4s; pointer-events: none; }
+body.cc-busy #cc-work { opacity: 1; }
+#cc-work canvas { width: min(400px, 56vw); aspect-ratio: 10 / 7; }
+#cc-work.has-card canvas { width: min(300px, 44vw); }
+#cc-work .w { display: none; margin-top: 4px; width: min(640px, 88vw); max-height: 32vh; overflow: hidden; text-align: left; white-space: pre; font: 12px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--ink); background: color-mix(in srgb, var(--bg) 86%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+#cc-work.has-card .w { display: block; }
+#cc-work .w .f { color: var(--muted); }
+#cc-work .w .del { color: #e5484d; background: color-mix(in srgb, #e5484d 9%, transparent); }
+#cc-work .w .add { color: #3fb950; background: color-mix(in srgb, #3fb950 9%, transparent); }
+#cc-work .w .out { color: var(--soft); }
+#cc-work .w .cur::after { content: "▍"; color: var(--accent); animation: see-breathe 1s steps(2) infinite; }
+#cc-work .v { font-size: 15px; font-weight: 600; color: var(--ink); }
+#cc-work .t { font-size: 12.5px; color: var(--soft); max-width: min(560px, 80vw); text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+#cc-feed { position: fixed; z-index: 4; top: 14px; left: 14px; width: min(320px, 42vw, calc(50vw - 90px)); max-height: calc(100% - 250px); overflow: hidden; display: flex; flex-direction: column; gap: 3px; font-size: 12.5px; opacity: .9; transition: opacity .4s; }
+body:not(.cc-turn) #cc-feed { opacity: 0; pointer-events: none; }
+
+#see-cap, main > header { transition: opacity .4s; }
+#cc-feed .r { display: flex; gap: 7px; align-items: baseline; white-space: nowrap; overflow: hidden; }
+#cc-feed .r b { font-weight: 600; color: var(--ink); flex: none; }
+#cc-feed .r span { color: var(--soft); overflow: hidden; text-overflow: ellipsis; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11.5px; }
+#cc-feed .r em { margin-left: auto; padding-left: 6px; font-style: normal; color: var(--muted); font-size: 11px; flex: none; font-variant-numeric: tabular-nums; }
+#cc-feed .r i { flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); align-self: center; }
+#cc-feed .r.run i { background: var(--accent); animation: see-breathe 1.2s ease-in-out infinite; }
+#cc-feed .r.bad i { background: #e5484d; }
+#cc-feed .you { color: var(--ink); background: color-mix(in srgb, var(--ink) 8%, transparent); padding: 4px 9px; border-radius: 9px; white-space: normal; margin-bottom: 4px; font-size: 13px; max-height: 3.2em; overflow: hidden; }
+#cc-feed .more { color: var(--muted); font-size: 11px; }
+.viz.see-nolabels .label { opacity: 0 !important; transition: none !important; }
+
+/* Claude's mark: a spark of dots, my cursor on the canvas */
+#cc-me { position: fixed; left: 0; top: 0; z-index: 7; width: 28px; height: 28px; margin: -14px 0 0 -14px; pointer-events: none; will-change: transform; }
+#cc-me svg { width: 100%; height: 100%; overflow: visible; }
+#cc-me .tag { position: absolute; left: 30px; top: 2px; white-space: normal; width: max-content; max-width: 280px; line-height: 1.35; font-size: 12.5px; font-weight: 500; color: var(--ink); background: color-mix(in srgb, var(--bg) 85%, transparent); border: 1px solid var(--accent); border-radius: 999px; padding: 2px 10px; opacity: 0; transform: translateX(-4px); transition: opacity .3s, transform .3s; }
+#cc-me.tagged .tag { opacity: 1; transform: none; }
+#cc-me.asking .tag { opacity: 0 !important; }
+body:has(#see-ask:not(:empty)) #cc-work { opacity: 0 !important; }
+#cc-trail { position: fixed; inset: 0; width: 100%; height: 100%; z-index: 6; pointer-events: none; }
+/* my words, beside my cursor */
+#cc-say { position: fixed; left: 0; top: 0; z-index: 6; width: 340px; pointer-events: none; font-size: 14.5px; line-height: 1.5; color: var(--soft);
+  background: color-mix(in srgb, var(--bg) 90%, transparent); border: 1px solid var(--line); border-left: 2px solid #D97757; border-radius: 4px 14px 14px 14px;
+  padding: 10px 14px 11px; backdrop-filter: blur(4px); opacity: 0; transition: opacity .35s; will-change: transform; }
+#cc-say.on { opacity: 1; }
+#cc-say .cap { font-size: 15.5px; font-weight: 600; color: var(--ink); margin-bottom: 4px; letter-spacing: -0.01em; }
+#cc-say { overflow-wrap: anywhere; }
+#cc-say p { margin: 0 0 5px; } #cc-say p:last-child { margin: 0; }
+#cc-say ul { margin: 6px 0 0; padding-left: 17px; } #cc-say li { margin: 2px 0; }
+#cc-say code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: 0 4px; border-radius: 3px; color: var(--ink); }
+#cc-say b { color: var(--ink); }
+#cc-say .w { opacity: 0; animation: cc-w .3s ease-out forwards; }
+@keyframes cc-w { from { opacity: 0; filter: blur(2px); } to { opacity: 1; filter: none; } }
+
+/* one surface for everything I put on the canvas: my words, a question, the composer, the input */
+:root { --cc-surface: color-mix(in srgb, var(--ink) 3.5%, var(--bg)); --cc-edge: color-mix(in srgb, var(--ink) 12%, transparent);
+  --cc-shadow: none; --cc-me: #D97757; }
+#cc-say, #see-ask, #cc-ask, #see-line textarea { background: var(--cc-surface) !important; border: 1px solid var(--cc-edge) !important;
+  box-shadow: none !important; backdrop-filter: none !important; }
+#cc-say { border-radius: 14px !important; padding: 12px 16px 13px !important; }
+#cc-say .cap::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--cc-me); margin: 0 8px 2px 0; vertical-align: middle; }
+#cc-say .you { color: var(--muted); font-size: 13px; font-style: italic; margin-bottom: 6px; }
+#see-line textarea { border-radius: 12px !important; padding: 9px 14px !important; font-size: 14px; }
+#see-line textarea::placeholder { color: var(--muted); }
+/* the selection: corner brackets around the part you clicked */
+#cc-sel { position: fixed; left: 0; top: 0; z-index: 5; pointer-events: none; opacity: 0; transition: opacity .2s; will-change: transform; }
+#cc-sel.on { opacity: 1; }
+#cc-sel i { position: absolute; width: 12px; height: 12px; border: 0 solid var(--cc-me); }
+#cc-sel i:nth-child(1) { left: 0; top: 0; border-left-width: 1.5px; border-top-width: 1.5px; border-top-left-radius: 4px; }
+#cc-sel i:nth-child(2) { right: 0; top: 0; border-right-width: 1.5px; border-top-width: 1.5px; border-top-right-radius: 4px; }
+#cc-sel i:nth-child(3) { left: 0; bottom: 0; border-left-width: 1.5px; border-bottom-width: 1.5px; border-bottom-left-radius: 4px; }
+#cc-sel i:nth-child(4) { right: 0; bottom: 0; border-right-width: 1.5px; border-bottom-width: 1.5px; border-bottom-right-radius: 4px; }
+/* the pin: where you clicked, riding the 3D spot */
+#cc-pin { position: fixed; left: 0; top: 0; z-index: 6; width: 12px; height: 12px; margin: -6px 0 0 -6px; border-radius: 50%;
+  background: var(--bg); border: 2.5px solid var(--cc-me); box-shadow: 0 0 0 4px color-mix(in srgb, var(--cc-me) 22%, transparent);
+  pointer-events: none; opacity: 0; transition: opacity .2s; will-change: transform; }
+#cc-pin.on { opacity: 1; }
+#cc-pin.on::after { content: ""; position: absolute; inset: -6px; border-radius: 50%; border: 1.5px solid var(--cc-me); animation: cc-ping 1.6s ease-out infinite; }
+#cc-pin.sent { background: var(--cc-me); }
+@keyframes cc-ping { from { transform: scale(.6); opacity: .9; } to { transform: scale(2.2); opacity: 0; } }
+/* the box you type in: my card, turned toward you -- what it's about, then one line */
+#cc-ask { position: fixed; left: 0; top: 0; z-index: 8; width: 340px; border-radius: 14px !important; padding: 12px 12px 10px 16px;
+  opacity: 0; pointer-events: none; transform: translate(-999px, 0); transition: opacity .2s; font-size: 14px; color: var(--ink); }
+#cc-ask.on { opacity: 1; pointer-events: auto; }
+#cc-ask .ctx { font-size: 15px; font-weight: 600; color: var(--ink); letter-spacing: -0.01em; margin-bottom: 2px; padding-right: 4px; }
+#cc-ask .ctx::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--cc-me); margin: 0 8px 2px 0; vertical-align: middle; }
+#cc-ask .ctx b { font-weight: 600; }
+#cc-ask .ctx span { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
+#cc-ask .row { display: flex; align-items: flex-end; gap: 8px; }
+#cc-ask textarea { flex: 1; box-sizing: border-box; resize: none; border: 0 !important; outline: none; background: transparent !important; color: var(--soft);
+  font: inherit; font-size: 14.5px; line-height: 1.5; padding: 4px 0; min-height: 28px; max-height: 120px; box-shadow: none !important; }
+#cc-ask textarea::placeholder { color: var(--muted); }
+#cc-ask .go { flex: none; width: 26px; height: 26px; border-radius: 50%; border: 0; background: color-mix(in srgb, var(--ink) 12%, transparent); color: var(--muted);
+  display: grid; place-items: center; cursor: pointer; padding: 0; transition: background .15s, color .15s; }
+#cc-ask .go svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+#cc-ask.ready .go { background: var(--cc-me); color: #fff; }
+#cc-pin { display: none !important; }
+#cc-keys { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 4; display: none; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); pointer-events: none; }
+body.form-steps #cc-keys, body.form-spec #cc-keys { display: flex; }
+
+#cc-keys { font-size: 11.5px; letter-spacing: .01em; }
+#cc-ask.free { width: 320px; padding: 8px 8px 8px 16px; }
+#cc-ask.free .ctx { display: none; }
+#cc-ask.free .row { align-items: center; }
+body.cc-asking #cc-say { opacity: 0 !important; }
+
+#cc-mark { pointer-events: auto; }
+/* no typing box on the canvas: you talk in the chat, or click a part */
+#see-line { display: none !important; }
+main > header { bottom: 34px !important; left: 50% !important; right: auto !important; transform: translateX(-50%); }
+#see-bg { display: none !important; }
+/* while I work: no feed, no tool card -- my logo turning over the world, blurred, and a thinking word */
+#cc-feed, #cc-work { display: none !important; }
+#cc-load { position: fixed; inset: 0; z-index: 8; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; pointer-events: none; opacity: 0; transition: opacity .45s; }
+#cc-load svg { width: 64px; height: 64px; animation: cc-spin 2.4s linear infinite; }
+#cc-load .v { font-size: 15px; font-weight: 500; color: var(--soft); letter-spacing: .01em; min-height: 1.4em; }
+#cc-load .v span { display: inline-block; animation: cc-v .5s ease-out; }
+@keyframes cc-spin { to { transform: rotate(360deg); } }
+@keyframes cc-v { from { opacity: 0; transform: translateY(4px); filter: blur(2px); } to { opacity: 1; transform: none; filter: none; } }
+body.cc-turn #cc-load { opacity: 1; }
+.viz { transition: filter .5s, opacity .5s; }
+body.cc-turn:not(.cc-engaged) .viz { filter: blur(7px); opacity: .55 !important; }
+body.cc-turn:not(.cc-engaged) #cc-me, body.cc-turn:not(.cc-engaged) #cc-say, body.cc-turn:not(.cc-engaged) #cc-trail { opacity: 0 !important; transition: opacity .3s; }
+body.cc-turn.cc-engaged #cc-load { opacity: 0; } /* you're moving through the world: it's yours, clear; my mark turns quicker instead */
+#cc-theme { margin-left: 4px; width: 28px; height: 28px; display: grid; place-items: center; border-radius: 50%; border: 1px solid var(--cc-edge);
+  background: var(--cc-surface); color: var(--soft); cursor: pointer; padding: 0; transition: color .2s, border-color .2s; }
+#cc-theme:hover { color: var(--ink); border-color: color-mix(in srgb, var(--ink) 30%, transparent); }
+#cc-theme svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+#cc-theme .moon { fill: currentColor; stroke: none; }
+:root[data-theme="dark"] #cc-theme .moon, :root[data-theme="light"] #cc-theme .sun { display: none; } /* shows what you switch to */
+:root[data-theme="light"] { --cc-shadow: 0 10px 30px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06); }
+</style>
+<!--BODY-->
+<canvas id="see-bg"></canvas><!-- a marker only: where this skin's body starts, for see-talk and reskin.py -->
+<div id="see-cap"></div>
+<div id="cc-mark"><button id="cc-theme" title="Light / dark" aria-label="Switch light or dark"><svg viewBox="0 0 24 24" class="sun"><circle cx="12" cy="12" r="4.2"/><g><line x1="12" y1="2" x2="12" y2="4.6"/><line x1="12" y1="19.4" x2="12" y2="22"/><line x1="2" y1="12" x2="4.6" y2="12"/><line x1="19.4" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.7" y2="6.7"/><line x1="17.3" y1="17.3" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.7" y2="17.3"/><line x1="17.3" y1="6.7" x2="19.1" y2="4.9"/></g></svg><svg viewBox="0 0 24 24" class="moon"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
+<canvas id="cc-trail"></canvas>
+<div id="cc-me"><svg viewBox="-20 -20 40 40"></svg><div class="tag"></div></div>
+<div id="cc-say"></div>
+<div id="cc-sel"><i></i><i></i><i></i><i></i></div>
+<div id="cc-pin"></div>
+<div id="cc-ask"><div class="ctx"><b></b><span></span></div><div class="row"><textarea rows="1" placeholder="Ask about it…"></textarea><button class="go" aria-label="Send"><svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg></button></div></div>
+<div id="cc-keys">press ← or → to go step by step</div>
+<div id="cc-load"><svg viewBox="0 0 24 24"></svg><div class="v"></div></div>
+<div id="cc-feed"></div>
+<div id="cc-work"><canvas></canvas><div class="v"></div><div class="t"></div><div class="w"></div></div>
+<div id="see-talk"><div id="see-say"></div><div id="see-ask"></div><div id="see-btns"></div><form id="see-line"><textarea rows="1" placeholder="Message Claude…"></textarea></form></div>
+<script>
+(() => {
+  const FORM = '{{FORM}}';
+  const steps = () => [...document.querySelectorAll('#steps > li[data-i]')];
+  const form = FORM.startsWith('{{') ? (steps().length > 1 ? 'steps' : 'image') : FORM;
+  document.body.classList.add('form-' + form);
+
+  // the caption: the current stop's line (+ its sentence in steps, + points in a spec)
+  const cap = document.getElementById('see-cap');
+  const n = document.createElement('span'); n.id = 'see-n';
+  const ctl = document.querySelector('main > header .controls'); if (ctl) ctl.appendChild(n);
+  function sync() {
+    const all = steps(), li = document.querySelector('#steps > li.now') || all[0];
+    if (!li) return;
+    const c = li.cloneNode(true); c.querySelectorAll('.detail, .pts').forEach(x => x.remove());
+    const d = li.querySelector('.detail'), p = li.querySelector('.pts');
+    cap.innerHTML = '<div class="c"></div>' + (form !== 'image' && d ? '<div class="d">' + d.innerHTML + '</div>' : '') +
+      (form === 'spec' && p ? '<ul>' + p.innerHTML + '</ul>' : '');
+    cap.querySelector('.c').innerHTML = c.innerHTML;
+    const k = all.indexOf(li);
+    n.textContent = (k + 1) + ' / ' + all.length;
+    // the walkthrough: my cursor goes to what this stop is about, carrying its title
+    if (k !== sync.last && window.ccPoint) {
+      sync.last = k;
+      const st = (typeof S !== 'undefined' && S && (S.stops || S.steps) || [])[k] || {};
+      const first = v => Array.isArray(v) ? v[0] : (typeof v === 'string' ? v : null);
+      const target = first(st.highlight) || (typeof st.focus === 'string' ? st.focus : null); // a stop about the whole: my words wait in the corner
+      const pts = Array.isArray(st.points) ? st.points : [];
+      setTimeout(() => window.ccPoint({ id: target || undefined, alt: first(st.focus) || undefined, walk: true }), 350);
+      window.ccStop = { cap: st.caption || c.textContent.trim(), text: st.detail || '', points: form === 'image' ? [] : pts };
+      if (window.ccSay) window.ccSay(window.ccStop);
+    }
+  }
+  addEventListener('DOMContentLoaded', () => {
+    try { playing = false; syncPlay(); } catch { } // no autoplay: you move, with → / ←
+    sync();
+    const ol = document.getElementById('steps');
+    if (ol) new MutationObserver(sync).observe(ol, { attributes: true, subtree: true, attributeFilter: ['class'] });
+
+
+    // talking: my latest words (short lines, - bullets, [[a|b]] buttons) over your input line;
+    // everything goes out through the hidden dock, so the extension needs no change
+    const log = document.getElementById('see-log');
+    const say = document.getElementById('see-say'), btns = document.getElementById('see-btns');
+    const line = document.querySelector('#see-line textarea'), lineForm = document.getElementById('see-line');
+    const send = text => {
+      const i = document.getElementById('see-in'), fm = document.getElementById('see-form');
+      if (!text.trim() || !i || !fm) return;
+      i.value = text; fm.requestSubmit();
+    };
+    lineForm.addEventListener('submit', e => { e.preventDefault(); send(line.value); line.value = ''; line.style.height = ''; });
+    line.addEventListener('keydown', e => {
+      e.stopPropagation();
+      if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); lineForm.requestSubmit(); }
+    });
+    line.addEventListener('input', () => { line.style.height = ''; line.style.height = Math.min(120, line.scrollHeight) + 'px'; });
+    const esc = t => t.replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+    const inl = t => esc(t).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+    function words(el) { // the raw text of a log entry from Claude
+      if (el.classList.contains('world')) { const t = el.textContent, k = t.indexOf(' · '); return k < 0 ? '' : t.slice(k + 3); }
+      return el.textContent;
+    }
+    function render() {
+      const items = [...log.children];
+      const last = items[items.length - 1];
+      const thinking = !!last && last.classList.contains('you'); // only your new line, not my tool activity, hides a choice
+      
+      const mine = [...items].reverse().find(x => x.classList.contains('claude') || x.classList.contains('world'));
+      let text = mine ? words(mine) : '', buttons = [];
+      let cur = null;
+      text = text.replace(/\[\[cur:(\{[\s\S]*?\})\]\]/, (_, j) => { try { cur = JSON.parse(j); } catch { } return ''; }).trim();
+      if (mine && mine !== render.lastMine) { render.lastMine = mine; if (cur) setTimeout(() => window.ccPoint && window.ccPoint(cur), 0); }
+      let ask = null;
+      text = text.replace(/\[\[ask:([\s\S]+)\]\]\s*$/, (_, j) => { try { ask = JSON.parse(j); } catch { } return ''; }).trim();
+      if (!ask) { // an open question stays up until you answer it, even while I show progress
+        for (let i = items.length - 1; i >= 0; i--) {
+          const it = items[i];
+          if (it.classList.contains('you')) break;
+          if (!(it.classList.contains('claude') || it.classList.contains('world'))) continue;
+          const m = /\[\[ask:([\s\S]+)\]\]\s*$/.exec(words(it));
+          if (m) { try { ask = JSON.parse(m[1]); } catch { } break; }
+        }
+      }
+      text = text.replace(/\[\[([^\]]+)\]\]\s*$/, (_, b) => { buttons = b.split('|').map(x => x.trim()).filter(Boolean); return ''; }).trim();
+      card(thinking ? null : ask);
+      let html = '', inList = false;
+      for (const raw of text.split('\n')) {
+        const t = raw.trim(); if (!t) continue;
+        if (/^[-•*] /.test(t)) { if (!inList) { html += '<ul>'; inList = true; } html += '<li>' + inl(t.slice(2)) + '</li>'; }
+        else { if (inList) { html += '</ul>'; inList = false; } html += '<p>' + inl(t) + '</p>'; }
+      }
+      if (inList) html += '</ul>';
+      say.innerHTML = html;
+      if (mine && mine !== render.lastSaid) { render.lastSaid = mine; if (html && window.ccSay) window.ccSay({ html }); }
+      btns.innerHTML = '';
+      if (!thinking) for (const b of buttons) {
+        const el = document.createElement('button'); el.textContent = b;
+        el.onclick = () => { send(b); btns.innerHTML = ''; };
+        btns.appendChild(el);
+      }
+    }
+    // a question card: {"q": "...", "options": [{"label", "description", "recommended"}], "multi": false}
+    const askEl = document.getElementById('see-ask');
+    let shownAsk = '';
+    function card(ask) {
+      const key = ask ? JSON.stringify(ask) : '';
+      if (key === shownAsk) return; shownAsk = key;
+      askEl.innerHTML = ''; if (!ask) return;
+      const picked = new Set();
+      const q = document.createElement('div'); q.className = 'q'; q.textContent = ask.q || ''; askEl.appendChild(q);
+      const rows = [];
+      (ask.options || []).forEach((o, i) => {
+        const r = document.createElement('div'); r.className = 'o' + (o.recommended ? ' rec' : '');
+        r.innerHTML = '<div class="k">' + (i + 1) + '</div><div><div class="l"></div><div class="d"></div></div>';
+        r.querySelector('.l').textContent = o.label; r.querySelector('.d').textContent = o.description || '';
+        r.onclick = () => {
+          if (!ask.multi) { send(o.label); askEl.innerHTML = ''; return; }
+          picked.has(o.label) ? picked.delete(o.label) : picked.add(o.label);
+          r.classList.toggle('on', picked.has(o.label)); go.disabled = !picked.size && !other.value.trim();
+        };
+        rows.push(r); askEl.appendChild(r);
+      });
+      const ow = document.createElement('div'); ow.className = 'other';
+      ow.innerHTML = '<input placeholder="Other…">'; askEl.appendChild(ow);
+      const other = ow.querySelector('input');
+      other.addEventListener('keydown', e => { e.stopPropagation(); if (e.key === 'Enter' && other.value.trim()) { e.preventDefault(); submit(); } });
+      other.addEventListener('input', () => { if (go) go.disabled = !picked.size && !other.value.trim(); });
+      const gw = document.createElement('div'); gw.className = 'go'; gw.innerHTML = '<button disabled>' + (ask.multi ? 'Send' : 'Send other') + '</button>';
+      askEl.appendChild(gw);
+      const go = gw.querySelector('button');
+      const submit = () => {
+        const parts = [...picked]; if (other.value.trim()) parts.push(other.value.trim());
+        if (!parts.length) return; send(parts.join(', ')); askEl.innerHTML = '';
+      };
+      go.onclick = submit;
+    }
+    if (log) { new MutationObserver(render).observe(log, { childList: true }); render(); }
+  });
+})();
+</script>
+<script>
+document.getElementById('cc-theme').addEventListener('click', e => {
+  e.stopPropagation(); const r = document.documentElement, t = r.dataset.theme === 'light' ? 'dark' : 'light';
+  r.dataset.theme = t; try { localStorage.setItem('see-theme', t); } catch { }
+});
+</script>
+<script>
+// Claude Code, live: the hooks (skills/see/hook.py) put each tool call on the channel as a status
+// line [[act:{phase,tool,target,id,ok}]]. Here they become a feed of rows and, while busy, a scene
+// that does the work in dots: a hammer for commands, a pencil for edits, pages for reading ...
+(() => {
+  const feed = document.getElementById('cc-feed'), work = document.getElementById('cc-work');
+  const cv = work.querySelector('canvas'), vEl = work.querySelector('.v'), tEl = work.querySelector('.t');
+  const VERB = { Bash: 'Running', Read: 'Reading', Edit: 'Editing', Write: 'Writing', NotebookEdit: 'Editing', Grep: 'Searching',
+    Glob: 'Finding files', WebFetch: 'Fetching', WebSearch: 'Searching the web', Agent: 'Delegating', Skill: 'Using a skill',
+    Monitor: 'Watching', ToolSearch: 'Loading tools', AskUserQuestion: 'Asking you', Artifact: 'Publishing' };
+  const SCENE = { Bash: 'hammer', Read: 'book', Edit: 'pencil', Write: 'pencil', NotebookEdit: 'pencil', Grep: 'lens', Glob: 'lens',
+    WebFetch: 'globe', WebSearch: 'globe', Agent: 'agents', Skill: 'gears', Monitor: 'lens', ToolSearch: 'gears', Artifact: 'paint' };
+  let rows = [], busy = false, current = null, you = '', shown = null, lingerUntil = 0;
+  const card = work.querySelector('.w');
+  // the card: the work itself, typed out (an edit's lines, a file, a command and what it printed)
+  let lines = [], typed = 0, typeT0 = 0;
+  function setCard(act) {
+    const d = act && act.detail; lines = [];
+    if (d) {
+      if (d.kind === 'diff') { if (d.file) lines.push(['f', d.file]); d.old.split('\n').forEach(l => lines.push(['del', '- ' + l])); d.new.split('\n').forEach(l => lines.push(['add', '+ ' + l])); }
+      else if (d.kind === 'code') { if (d.file) lines.push(['f', d.file]); d.text.split('\n').forEach(l => lines.push(['', l])); }
+      else if (d.kind === 'cmd') d.text.split('\n').forEach((l, i) => lines.push(['', (i ? '  ' : '$ ') + l]));
+    }
+    if (act && act.out) act.out.split('\n').forEach(l => lines.push(['out', l]));
+    card.innerHTML = lines.map(([c]) => '<div class="' + c + '"></div>').join('');
+    work.classList.toggle('has-card', lines.length > 0);
+    typed = act && act.typedTo || 0; typeT0 = performance.now() - typed / 0.12;
+  }
+  function typeTick(now) {
+    if (!lines.length) return;
+    const total = lines.reduce((a, l) => a + l[1].length + 1, 0), want = Math.min(total, (now - typeT0) * 0.12); // ~120 chars/s
+    let left = want, i = 0;
+    for (const el of card.children) {
+      const t = lines[i++][1], n = Math.max(0, Math.min(t.length, left)); left -= t.length + 1;
+      const v = t.slice(0, Math.ceil(n)); if (el.textContent !== v) el.textContent = v;
+      el.classList.toggle('cur', n > 0 && n < t.length + 1 && left < 0 && left > -t.length - 1);
+    }
+    if (shown) shown.typedTo = want;
+  }
+
+  function sceneFor(a) {
+    if (!a) return 'gears';
+    if (a.tool === 'Bash' && /publish|capture|build\.py|render|draw/i.test(a.target)) return 'paint';
+    return SCENE[a.tool] || 'gears';
+  }
+  function apply(a, live, at) {
+    if (a.phase === 'start') curAt = at || Date.now();
+    const T = at || Date.now();
+    if (a.phase === 'start') { rows.push({ id: a.id, tool: a.tool, target: a.target || '', t0: T, run: true }); current = a; shown = a; busy = true; if (live) setCard(a); }
+    else if (a.phase === 'end') {
+      const r = rows.find(x => x.id === a.id) || rows[rows.length - 1]; if (r) { r.run = false; r.ok = a.ok !== false; r.dt = (T - r.t0) / 1000; }
+      if (shown && shown.id === a.id && a.detail && a.detail.kind === 'out') { shown.out = a.detail.text; if (live) setCard(shown); }
+      current = null; busy = true; if (live) lingerUntil = performance.now() + (a.detail ? 1800 : 600);
+    }
+    else if (a.phase === 'idle') { busy = false; current = null; rows.forEach(r => r.run = false); }
+  }
+  let lastAt = 0, curAt = 0; // wall-clock time of the last line, and of the running tool's start
+  function draw() {
+    const log = document.getElementById('see-log'), st = log && [...log.querySelectorAll('.status')].pop();
+    if (st && /"phase":\s*"idle"/.test(st.textContent)) { busy = false; current = null; }
+    const now = Date.now();
+    if (current && now - curAt > 600000) current = null;           // a tool whose end never came: not running
+    if (busy && !current && now - lastAt > 30000) busy = false;     // 30 s of nothing and no tool running: not working
+    document.body.classList.toggle('cc-turn', busy);           // a turn is under way: the feed shows
+    document.body.classList.toggle('cc-busy', !!current || performance.now() < lingerUntil); // a tool is running (or just ran): its scene and work show
+    const tk = document.getElementById('see-talk'), room = tk ? tk.getBoundingClientRect().top - 40 : innerHeight - 250; // stop above my words
+    const fit = Math.max(2, Math.min(14, Math.floor((room - (you ? 60 : 24)) / 23)));
+    feed.style.maxHeight = Math.max(60, room) + 'px';
+    const shown = rows.slice(-fit), more = rows.length - shown.length;
+    feed.innerHTML = (you ? '<div class="you"></div>' : '') + (more > 0 ? '<div class="more">+' + more + ' earlier</div>' : '') +
+      shown.map(r => '<div class="r' + (r.run ? ' run' : r.ok === false ? ' bad' : '') + '"><i></i><b></b><span></span><em>' +
+        (r.run ? '' : r.dt != null ? (r.dt < 10 ? r.dt.toFixed(1) : Math.round(r.dt)) + 's' : '') + '</em></div>').join('');
+    if (you) feed.querySelector('.you').textContent = you;
+    feed.querySelectorAll('.r').forEach((el, i) => { el.querySelector('b').textContent = shown[i].tool; el.querySelector('span').textContent = shown[i].target; });
+    const on = current || shown;
+    vEl.textContent = on ? (sceneFor(on) === 'paint' ? 'Drawing' : VERB[on.tool] || on.tool) : '';
+    tEl.textContent = on ? on.target : '';
+  }
+  // read the hidden log as it grows (each new status replaces the last, so read additions, in order)
+  function take(el) {
+    const t0 = el.dataset && el.dataset.at ? Date.parse(el.dataset.at) : Date.now(); if (t0 > lastAt) lastAt = t0;
+    if (el.classList.contains('you')) { you = el.textContent; rows = []; busy = true; current = null; return; }
+    if (!el.classList.contains('status')) return;
+    const m = /\[\[act:([\s\S]+)\]\]/.exec(el.textContent); if (!m) return;
+    try { const at = el.dataset.at ? Date.parse(el.dataset.at) : 0; apply(JSON.parse(m[1]), started, started ? 0 : at); } catch { }
+  }
+  addEventListener('DOMContentLoaded', () => { // the dock (and its log) comes after this script
+    const log = document.getElementById('see-log'); if (!log) return;
+    new MutationObserver(recs => { for (const r of recs) r.addedNodes.forEach(n => n.nodeType === 1 && take(n)); draw(); })
+      .observe(log, { childList: true });
+    [...log.children].forEach(take); draw();
+    setTimeout(() => { started = true; }, 300); // what replays on load is history: no typing, no lingering
+  });
+  let started = false;
+  setInterval(draw, 500);
+
+  // ---- the work, in dots: draw a scene small, then resample it as halftone dots ----
+  const W = 120, H = 84, off = document.createElement('canvas'); off.width = W; off.height = H;
+  const g = off.getContext('2d', { willReadFrequently: true }), out = cv.getContext('2d');
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const INK = '#fff', HOT = '#f00', DIM = '#777';
+  const rr = (x, y, w, h, r) => { g.beginPath(); g.roundRect(x, y, w, h, r); g.fill(); };
+  const sparks = [];
+  const S = {
+    hammer(t) {
+      g.fillStyle = DIM; g.beginPath(); g.moveTo(34, 62); g.lineTo(86, 62); g.lineTo(80, 68); g.lineTo(74, 68); g.lineTo(74, 76); g.lineTo(84, 80); g.lineTo(36, 80); g.lineTo(46, 76); g.lineTo(46, 68); g.lineTo(28, 66); g.closePath(); g.fill();
+      const ph = (t * 1.25) % 1, up = ph < 0.72 ? Math.sin(ph / 0.72 * Math.PI / 2) : 1 - Math.pow((ph - 0.72) / 0.28, 2.2);
+      const ang = -0.05 - 1.25 * (ph < 0.72 ? up : up), px = 92, py = 52;
+      if (ph > 0.97 || ph < 0.02) for (let i = 0; i < 3; i++) sparks.push({ x: 60, y: 60, vx: (Math.random() - 0.5) * 3.2, vy: -Math.random() * 2.6, l: 1 });
+      g.save(); g.translate(px, py); g.rotate(ang);
+      g.fillStyle = INK; rr(-34, -2, 36, 4, 2);                 // the handle
+      g.fillStyle = INK; rr(-44, -8, 13, 16, 2); g.fillStyle = DIM; rr(-46, -6, 3, 12, 1); // the head
+      g.restore();
+      for (const s of sparks) { s.x += s.vx; s.y += s.vy; s.vy += 0.18; s.l -= 0.05; }
+      for (let i = sparks.length - 1; i >= 0; i--) if (sparks[i].l <= 0) sparks.splice(i, 1);
+      g.fillStyle = HOT; for (const s of sparks) { g.globalAlpha = Math.max(0, s.l); g.fillRect(s.x, s.y, 2, 2); } g.globalAlpha = 1;
+    },
+    pencil(t) {
+      g.save(); g.translate(60, 44); g.rotate(-0.08);
+      g.fillStyle = DIM; rr(-34, -30, 68, 60, 3);
+      const p = (t * 0.35) % 1, lines = 6, done = p * lines;
+      g.fillStyle = INK;
+      let px = -26, py = -20;
+      for (let k = 0; k < lines; k++) {
+        const len = Math.max(0, Math.min(1, done - k)) * (k === lines - 1 ? 30 : 48);
+        if (len > 0) { const y = -20 + k * 8; g.fillRect(-26, y, len, 2); for (let j = 4; j < len; j += 7) g.fillRect(-26 + j, y - 1 + (j % 3), 2, 1); if (len < 48) { px = -26 + len; py = y; } }
+      }
+      g.restore();
+      g.save(); g.translate(60 + px, 44 + py - 1); g.rotate(-0.75 + 0.06 * Math.sin(t * 22));
+      g.fillStyle = HOT; g.beginPath(); g.moveTo(0, 0); g.lineTo(5, -3); g.lineTo(5, 3); g.closePath(); g.fill();
+      g.fillStyle = INK; g.fillRect(5, -3, 30, 6); g.fillStyle = DIM; g.fillRect(35, -3, 5, 6);
+      g.restore();
+    },
+    book(t) {
+      const cx = 60, cy = 50;
+      g.fillStyle = DIM; g.beginPath(); g.moveTo(cx, cy + 16); g.lineTo(cx - 44, cy + 12); g.lineTo(cx - 44, cy - 20); g.lineTo(cx, cy - 16); g.closePath(); g.fill();
+      g.beginPath(); g.moveTo(cx, cy + 16); g.lineTo(cx + 44, cy + 12); g.lineTo(cx + 44, cy - 20); g.lineTo(cx, cy - 16); g.closePath(); g.fill();
+      g.fillStyle = INK; for (let k = 0; k < 6; k++) { g.fillRect(cx - 38, cy - 12 + k * 4.4, 30, 1.4); g.fillRect(cx + 8, cy - 12 + k * 4.4, 30, 1.4); }
+      const ph = (t * 0.6) % 1, c = Math.cos(ph * Math.PI);                 // a page turning right to left
+      g.fillStyle = Math.abs(c) < 0.25 ? INK : '#bbb';
+      g.beginPath(); g.moveTo(cx, cy + 16); g.lineTo(cx + 44 * c, cy + 12 - 10 * (1 - Math.abs(c))); g.lineTo(cx + 44 * c, cy - 20 - 10 * (1 - Math.abs(c))); g.lineTo(cx, cy - 16); g.closePath(); g.fill();
+      g.fillStyle = HOT; g.fillRect(cx - 38 + ((t * 18) % 30), cy - 13 + 4.4 * Math.floor((t * 0.6) % 6), 2, 3); // the eye's place
+    },
+    lens(t) {
+      const files = (x0, y0, sc) => { for (let i = 0; i < 9; i++) for (let j = 0; j < 6; j++) { g.fillStyle = (i * 7 + j * 3) % 11 === 0 ? INK : DIM; g.fillRect(x0 + i * 11 * sc, y0 + j * 11 * sc, 8 * sc, 8 * sc); } };
+      files(12, 10, 1);
+      const lx = 60 + 30 * Math.sin(t * 0.9), ly = 40 + 18 * Math.sin(t * 1.4);
+      g.save(); g.beginPath(); g.arc(lx, ly, 17, 0, 6.3); g.clip(); g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+      g.translate(lx, ly); g.scale(1.8, 1.8); g.translate(-lx, -ly); files(12, 10, 1); g.restore();
+      g.strokeStyle = HOT; g.lineWidth = 3; g.beginPath(); g.arc(lx, ly, 18, 0, 6.3); g.stroke();
+      g.strokeStyle = INK; g.lineWidth = 5; g.beginPath(); g.moveTo(lx + 13, ly + 13); g.lineTo(lx + 27, ly + 27); g.stroke();
+    },
+    globe(t) {
+      const cx = 60, cy = 42, R = 30;
+      g.fillStyle = '#333'; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.fill();
+      g.strokeStyle = INK; g.lineWidth = 1.4; g.beginPath(); g.arc(cx, cy, R, 0, 6.3); g.stroke();
+      for (let k = 0; k < 6; k++) { const a = ((t * 0.5 + k / 6) % 1) * Math.PI, w = Math.cos(a) * R; g.strokeStyle = w > 0 ? INK : DIM; g.beginPath(); g.ellipse(cx, cy, Math.abs(w), R, 0, 0, 6.3); g.stroke(); }
+      for (const y of [-18, -9, 0, 9, 18]) { const w = Math.sqrt(R * R - y * y); g.strokeStyle = DIM; g.beginPath(); g.ellipse(cx, cy + y, w, 1.5, 0, 0, 6.3); g.stroke(); }
+      const a = t * 1.6; g.fillStyle = HOT; g.beginPath(); g.arc(cx + Math.cos(a) * (R + 7), cy + Math.sin(a) * 9, 3, 0, 6.3); g.fill();
+    },
+    gears(t) {
+      const gear = (cx, cy, r, n, a, col) => {
+        g.fillStyle = col; g.beginPath();
+        for (let i = 0; i < n * 2; i++) { const ang = a + i * Math.PI / n, rad = i % 2 ? r : r + 5; g.lineTo(cx + Math.cos(ang - 0.12) * rad, cy + Math.sin(ang - 0.12) * rad); g.lineTo(cx + Math.cos(ang + 0.12) * rad, cy + Math.sin(ang + 0.12) * rad); }
+        g.closePath(); g.fill(); g.fillStyle = '#000'; g.beginPath(); g.arc(cx, cy, r * 0.35, 0, 6.3); g.fill();
+      };
+      gear(46, 44, 22, 12, t * 0.9, INK); gear(83, 30, 13, 7, -t * 0.9 * 12 / 7 + 0.2, DIM);
+      g.fillStyle = HOT; g.beginPath(); g.arc(46, 44, 4, 0, 6.3); g.fill();
+    },
+    agents(t) {
+      g.fillStyle = INK; g.beginPath(); g.arc(60, 42, 9, 0, 6.3); g.fill();
+      for (let k = 0; k < 3; k++) { const a = t * 1.1 + k * 2.09, x = 60 + Math.cos(a) * 34, y = 42 + Math.sin(a) * 20;
+        g.strokeStyle = DIM; g.lineWidth = 1; g.beginPath(); g.moveTo(60, 42); g.lineTo(x, y); g.stroke();
+        g.fillStyle = k === 0 ? HOT : INK; g.beginPath(); g.arc(x, y - 4, 3.5, 0, 6.3); g.fill(); rr(x - 4, y, 8, 8, 3); }
+    },
+    paint(t) {
+      g.fillStyle = DIM; g.fillRect(58, 8, 3, 70); g.fillRect(40, 72, 40, 3);
+      g.fillStyle = '#2a2a2a'; g.fillRect(32, 14, 56, 44); g.strokeStyle = INK; g.lineWidth = 1.5; g.strokeRect(32, 14, 56, 44);
+      const p = (t * 0.25) % 1;
+      for (let i = 0; i < 26; i++) for (let j = 0; j < 20; j++) { const k = (i * 17 + j * 31) % 97 / 97; if (k < p) { const d = Math.hypot(i - 13, j - 11) / 13; g.fillStyle = d < 0.45 ? HOT : d < 0.8 ? INK : DIM; g.fillRect(34 + i * 2, 16 + j * 2, 2, 2); } }
+      const bx = 34 + ((t * 30) % 52), by = 16 + 20 + 14 * Math.sin(t * 3);
+      g.fillStyle = INK; g.save(); g.translate(bx, by); g.rotate(0.7); g.fillRect(0, -1.5, 20, 3); g.fillStyle = HOT; g.fillRect(-4, -2, 4, 4); g.restore();
+    },
+  };
+  let t0 = performance.now();
+  function frame(now) {
+    requestAnimationFrame(frame);
+    typeTick(now);
+    const act = current || (performance.now() < lingerUntil ? shown : null);
+    if (!act) return;
+    const dpr = devicePixelRatio || 1, w = cv.clientWidth, h = cv.clientHeight;
+    if (!w) return;
+    if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+    const t = (now - t0) / 1000;
+    g.fillStyle = '#000'; g.fillRect(0, 0, W, H);
+    (S[sceneFor(act)] || S.gears)(t);
+    const px = g.getImageData(0, 0, W, H).data, cw = cv.width / W, ch = cv.height / H;
+    out.clearRect(0, 0, cv.width, cv.height);
+    const ink = css('--ink') || '#eee', acc = css('--accent') || '#ff7a4d';
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4, r = px[i], gg = px[i + 1], b = px[i + 2], lum = (r + gg + b) / 765;
+      if (lum < 0.04) continue;
+      out.fillStyle = r > 150 && gg < 90 ? acc : ink;
+      out.globalAlpha = r > 150 && gg < 90 ? 1 : 0.35 + 0.65 * lum;
+      const rad = Math.min(cw, ch) * (0.18 + 0.32 * Math.sqrt(r > 150 && gg < 90 ? 0.9 : lum));
+      out.beginPath(); out.arc((x + 0.5) * cw, (y + 0.5) * ch, rad, 0, 6.2832); out.fill();
+    }
+    out.globalAlpha = 1;
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+<script>
+// A click on the world selects what's under it (the viewer's seePick): a frame snaps around that
+// part, a pin marks the spot, and a composer opens beside it with the part named as context. You
+// write your own question; Enter sends it with the context, Esc (or a click elsewhere) closes it.
+(() => {
+  const viz = document.getElementById('viz'); if (!viz) return;
+  const sel = document.getElementById('cc-sel'), pin = document.getElementById('cc-pin'), box = document.getElementById('cc-ask');
+  const ta = box.querySelector('textarea'), ctxEl = box.querySelector('.ctx b'), whereEl = box.querySelector('.ctx span');
+  let cur = null; // {at, id, name, where}
+  const nice = t => String(t || '').replace(/[_.]+/g, ' ').replace(/\s+\d+$/, '').trim();
+  // a part's own name from the scene: its label, else the first words written on it
+  function sceneName(id) {
+    const W = (typeof S !== 'undefined' && S && S.world) || [];
+    let node = null; const find = list => { for (const n of list || []) { if (!n || node) continue; if (String(n.id) === String(id)) { node = n; return; } find(n.parts); find(n.zoom); if (n.part) find([n.part]); } };
+    find(W); if (!node) return '';
+    if (node.label) return node.label;
+    let t = ''; const note = list => { for (const n of list || []) { if (t || !n) continue; if (n.type === 'note' && n.text) { t = String(n.text).split('\n')[0]; return; } note(n.parts); } };
+    note([node]); return t.length <= 28 ? t : t.slice(0, 26) + '…';
+  }
+  function nameOf(h) {
+    const own = h.owner ? sceneName(h.owner) : '';
+    if (own && own !== h.label) return { name: own, sub: h.label || '' };
+    const named = h.part && !/^(Object_|node|mesh|part )\d*/i.test(h.part) && !/default|material|\bmat\b|texture|\d/i.test(h.part) && h.part.length < 32;
+    const owner = h.label || (h.owner ? nice(h.owner) : '');
+    if (named && owner) return { name: owner, sub: nice(h.part) };
+    if (owner) return { name: owner, sub: '' };
+    return { name: h.type === 'box' ? 'this surface' : h.type === 'mesh' ? 'this model' : 'this spot', sub: '' };
+  }
+  function whereOf(r) {
+    return [r[1] > .33 ? 'top' : r[1] < -.33 ? 'bottom' : '', r[2] > .33 ? 'front' : r[2] < -.33 ? 'back' : '',
+      r[0] > .33 ? 'right' : r[0] < -.33 ? 'left' : ''].filter(Boolean).join(' ');
+  }
+  function open(h, x, y) {
+    const n = nameOf(h), where = whereOf(h.rel || [0, 0, 0]);
+    cur = { at: h.at, id: h.owner || h.id, name: n.name, sub: n.sub, where, x, y };
+    ctxEl.textContent = n.name; whereEl.textContent = n.sub || '';
+    ta.value = ''; ta.style.height = ''; box.classList.remove('ready');
+    const from = window.ccBubAt && window.ccBubAt(); if (from) { askX = from[0]; askY = from[1]; }
+    document.body.classList.add('cc-asking');
+    box.classList.add('on'); pin.classList.add('on'); sel.classList.toggle('on', !!cur.id);
+    setTimeout(() => ta.focus(), 30);
+    if (window.ccPoint) window.ccPoint({ screenFn: () => cur && cur.box ? [cur.box[0] - 18, cur.box[1] + 22] : null }); // I ride the box's corner
+  }
+  let askX = null, askY = null;
+  window.ccAskAim = () => cur && cur.at && window.seeProject ? window.seeProject(cur.at) : null;
+  function openFree(x, y) {
+    cur = { free: true, x, y };
+    ta.value = ''; ta.style.height = ''; ta.placeholder = 'Message Claude…'; box.classList.remove('ready'); box.classList.add('free');
+    document.body.classList.add('cc-asking'); sel.classList.remove('on'); pin.classList.remove('on');
+    box.classList.add('on'); setTimeout(() => ta.focus(), 30);
+    if (window.ccPoint) window.ccPoint({ screenFn: () => cur && cur.box ? [cur.box[0] - 18, cur.box[1] + box.offsetHeight / 2] : null });
+  }
+  function close() { box.classList.remove('free'); ta.placeholder = 'Ask about it…'; cur = null; box.classList.remove('on'); pin.classList.remove('on'); sel.classList.remove('on'); document.body.classList.remove('cc-asking'); }
+  function send() {
+    const text = ta.value.trim(); if (!text || !cur) return;
+    const i = document.getElementById('see-in'), fm = document.getElementById('see-form'); if (!i || !fm) return;
+    if (cur.free) {
+      delete i.dataset.part; delete i.dataset.stop; i.value = text; fm.requestSubmit(); close();
+      window.ccQ = text.replace(/[&<>]/g, ''); if (window.ccPoint) window.ccPoint(null);
+      if (window.ccSay) window.ccSay({ html: '<p>On it…</p>' }); return;
+    }
+    const about = cur.name + (cur.sub ? ' (' + cur.sub + ')' : '') + (cur.where ? ', ' + cur.where : '');
+    const now = document.querySelector('#steps li.now'), k = now ? [...now.parentNode.children].indexOf(now) + 1 : 0;
+    i.value = text; i.dataset.part = about; i.dataset.stop = k ? String(k) : '';
+    fm.requestSubmit();
+    const at = cur.at, id = cur.id; close();
+    pin.classList.add('on', 'sent'); setTimeout(() => pin.classList.remove('on', 'sent'), 3500);
+    window.ccQ = text.replace(/[&<>]/g, '');
+    if (window.ccSay) window.ccSay({ html: '<p>Looking…</p>', q: true });
+    if (window.ccPoint) window.ccPoint(id ? { id } : { at });
+  }
+  ta.addEventListener('keydown', e => {
+    e.stopPropagation();
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); send(); }
+    if (e.key === 'Escape') { e.preventDefault(); close(); }
+  });
+  ta.addEventListener('input', () => { ta.style.height = ''; ta.style.height = Math.min(120, ta.scrollHeight) + 'px'; box.classList.toggle('ready', !!ta.value.trim()); });
+  box.querySelector('.go').addEventListener('click', send);
+  addEventListener('keydown', e => { if (e.key === 'Escape' && cur) close(); });
+  let down = null;
+  viz.addEventListener('pointerdown', e => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; }, true);
+  viz.addEventListener('pointerup', e => {
+    if (!down) return;
+    const click = Math.hypot(e.clientX - down.x, e.clientY - down.y) < 5 && performance.now() - down.t < 500; down = null;
+    if (!click || !window.seePick) return;
+    viz.classList.add('see-nolabels'); setTimeout(() => viz.classList.remove('see-nolabels'), 0); // the dock's old label-click must not fire
+    const h = window.seePick(e.clientX, e.clientY);
+    if (!h || !h.at || (!h.id && !h.label && !h.owner)) { close(); pin.classList.remove('on', 'sent'); if (window.ccReset) window.ccReset(); return; } // off every part: I go back to rest
+    open(h, e.clientX, e.clientY);
+  }, true);
+  viz.addEventListener('dblclick', e => {
+    const h = window.seePick && window.seePick(e.clientX, e.clientY);
+    if (h && h.at && (h.id || h.label || h.owner)) return; // on a part: the click already asked about it
+    e.preventDefault(); e.stopPropagation(); openFree(e.clientX, e.clientY);
+  }, true);
+  // every frame: the pin rides its 3D spot, the frame wraps the part, the composer sits beside the pin
+  function corners(id) {
+    if (!window.seeLocate || !window.seeProject) return null;
+    let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9, any = false;
+    for (const a of [-1, 1]) for (const b of [-1, 1]) for (const c of [-1, 1]) {
+      const w = window.seeLocate(id, [a, b, c]), p = w && window.seeProject(w); if (!p) continue;
+      any = true; x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]);
+    }
+    return any ? [x0, y0, x1, y1] : null;
+  }
+  let pinAt = null;
+  function frame() {
+    requestAnimationFrame(frame);
+    if (cur && cur.free) { // a free box: where you double-clicked, kept on screen
+      const bw = box.offsetWidth, bh = box.offsetHeight, fx = Math.max(40, Math.min(innerWidth - bw - 12, cur.x - 24)), fy = Math.max(56, Math.min(innerHeight - bh - 64, cur.y - bh / 2));
+      box.style.transform = 'translate(' + fx.toFixed(1) + 'px,' + fy.toFixed(1) + 'px)'; cur.box = [fx, fy]; return;
+    }
+    if (cur && cur.at) pinAt = cur.at;
+    if (!pin.classList.contains('on') || !pinAt || !window.seeProject) return;
+    const p = window.seeProject(pinAt); if (!p) return;
+    pin.style.transform = 'translate(' + p[0].toFixed(1) + 'px,' + p[1].toFixed(1) + 'px)';
+    if (cur && cur.id && sel.classList.contains('on')) {
+      const r = corners(cur.id);
+      if (r) { const pad = 8, w = Math.min(innerWidth - 8, r[2] + pad) - Math.max(8, r[0] - pad), h = Math.min(innerHeight - 8, r[3] + pad) - Math.max(8, r[1] - pad);
+        sel.style.transform = 'translate(' + Math.max(8, r[0] - pad).toFixed(1) + 'px,' + Math.max(8, r[1] - pad).toFixed(1) + 'px)';
+        sel.style.width = w.toFixed(1) + 'px'; sel.style.height = h.toFixed(1) + 'px'; }
+    }
+    if (cur) { // my card's place, turned into the box: beside the world, at the part's height
+      const bw = Math.min(340, (window.ccSpot && document.getElementById('cc-say').offsetWidth) || 340); box.style.width = bw + 'px';
+      const [wx, wy] = window.ccSpot ? window.ccSpot(p, bw, box.offsetHeight) : [p[0] + 20, p[1]];
+      if (askX == null) { askX = wx; askY = wy; }
+      askX += (wx - askX) * 0.14; askY += (wy - askY) * 0.14;
+      box.style.transform = 'translate(' + askX.toFixed(1) + 'px,' + askY.toFixed(1) + 'px)';
+      cur.box = [askX, askY];
+    }
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+<script>
+// me, on the canvas: a spark of dots that goes where my attention is. It rests by my words, works
+// beside the work card, comes to what you click, and flies to what I point at ([[cur:{...}]] on my
+// line: {"id": part, "rel": [x,y,z] -1..1 on it, "at": [x,y,z] world, "zoom": 0.5 to fly the camera
+// in, "tag": "a short label"}).
+(() => {
+  const me = document.getElementById('cc-me'), svg = me.querySelector('svg'), tag = me.querySelector('.tag');
+  const trail = document.getElementById('cc-trail'), tg = trail.getContext('2d');
+  const ACC = () => getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() || '#ff7a4d';
+  // the mark: Claude's own logo (its path, from the Claude Code extension), in Claude's orange
+  svg.setAttribute('viewBox', '0 0 24 24');
+  svg.innerHTML = '<g class="lg"><path fill="#D97757" d="M4.709 15.955l4.72-2.647.08-.23-.08-.128H9.2l-.79-.048-2.698-.073-2.339-.097-2.266-.122-.571-.121L0 11.784l.055-.352.48-.321.686.06 1.52.103 2.278.158 1.652.097 2.449.255h.389l.055-.157-.134-.098-.103-.097-2.358-1.596-2.552-1.688-1.336-.972-.724-.491-.364-.462-.158-1.008.656-.722.881.06.225.061.893.686 1.908 1.476 2.491 1.833.365.304.145-.103.019-.073-.164-.274-1.355-2.446-1.446-2.49-.644-1.032-.17-.619a2.97 2.97 0 01-.104-.729L6.283.134 6.696 0l.996.134.42.364.62 1.414 1.002 2.229 1.555 3.03.456.898.243.832.091.255h.158V9.01l.128-1.706.237-2.095.23-2.695.08-.76.376-.91.747-.492.584.28.48.685-.067.444-.286 1.851-.559 2.903-.364 1.942h.212l.243-.242.985-1.306 1.652-2.064.73-.82.85-.904.547-.431h1.033l.76 1.129-.34 1.166-1.064 1.347-.881 1.142-1.264 1.7-.79 1.36.073.11.188-.02 2.856-.606 1.543-.28 1.841-.315.833.388.091.395-.328.807-1.969.486-2.309.462-3.439.813-.042.03.049.061 1.549.146.662.036h1.622l3.02.225.79.522.474.638-.079.485-1.215.62-1.64-.389-3.829-.91-1.312-.329h-.182v.11l1.093 1.068 2.006 1.81 2.509 2.33.127.578-.322.455-.34-.049-2.205-1.657-.851-.747-1.926-1.62h-.128v.17l.444.649 2.345 3.521.122 1.08-.17.353-.608.213-.668-.122-1.374-1.925-1.415-2.167-1.143-1.943-.14.08-.674 7.254-.316.37-.729.28-.607-.461-.322-.747.322-1.476.389-1.924.315-1.53.286-1.9.17-.632-.012-.042-.14.018-1.434 1.967-2.18 2.945-1.726 1.845-.414.164-.717-.37.067-.662.401-.589 2.388-3.036 1.44-1.882.93-1.086-.006-.158h-.055L4.132 18.56l-1.13.146-.487-.456.061-.746.231-.243 1.908-1.312-.006.006z"/></g>';
+  const lg = svg.querySelector('.lg');
+  // the loader: the same mark, large, and the words Claude Code shows while it thinks
+  const ld = document.getElementById('cc-load'), ldv = ld.querySelector('.v');
+  ld.querySelector('svg').innerHTML = svg.innerHTML;
+  const VERBS = ['Thinking', 'Pondering', 'Cogitating', 'Musing', 'Mulling', 'Ruminating', 'Percolating', 'Noodling', 'Brewing', 'Simmering',
+    'Conjuring', 'Crafting', 'Forging', 'Synthesizing', 'Clauding', 'Deliberating', 'Ideating', 'Marinating', 'Reticulating', 'Spinning',
+    'Churning', 'Hatching', 'Computing', 'Considering', 'Manifesting', 'Puttering', 'Schlepping', 'Vibing', 'Working', 'Accomplishing'];
+  let vi = Math.floor(Math.random() * VERBS.length);
+  const nextVerb = () => { vi = (vi + 1 + Math.floor(Math.random() * 3)) % VERBS.length; ldv.innerHTML = '<span>' + VERBS[vi] + '…</span>'; };
+  nextVerb(); setInterval(() => { if (document.body.classList.contains('cc-turn')) nextVerb(); }, 3200);
+  const topOf = (el, d) => { if (!el) return d; const r = el.getBoundingClientRect(); return r.height ? r.top : d; };
+  // my words: a bubble that rides beside the cursor, typed in word by word
+  const bub = document.getElementById('cc-say');
+  let bx = null, by = null, sayAt = 0;
+  const pane = () => { const p = typeof window.SEE_PANE === 'function' ? window.SEE_PANE() : 1; return typeof p === 'object' ? p : { w: p, h: 1 }; };
+  const paneEdge = () => { const p = pane(); return p.w < 1 ? ((p.x || 0) + p.w) * innerWidth : null; };
+  const paneFloor = () => { const p = pane(); return p.h < 1 ? p.h * innerHeight : null; };
+  const sayRight = x => paneEdge() != null || x < innerWidth * 0.56;
+  const escH = t => String(t).replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' })[c]);
+  const inlH = t => escH(t).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>');
+  function words(el) { // wrap each word so it can appear in turn
+    let i = 0; const walk = n => { for (const k of [...n.childNodes]) {
+      if (k.nodeType === 3) { const f = document.createDocumentFragment(); for (const part of k.textContent.split(/(\s+)/)) {
+        if (!part) continue; if (/^\s+$/.test(part)) { f.appendChild(document.createTextNode(part)); continue; }
+        const sp = document.createElement('span'); sp.className = 'w'; sp.style.animationDelay = (i++ * 28) + 'ms'; sp.textContent = part; f.appendChild(sp); }
+        k.replaceWith(f); }
+      else if (k.nodeType === 1 && k.tagName !== 'CODE') walk(k);
+      else if (k.nodeType === 1) { k.classList.add('w'); k.style.animationDelay = (i++ * 28) + 'ms'; } } };
+    walk(el);
+  }
+  window.ccSay = m => {
+    let h = '';
+    if (m.html) h = m.html;
+    else { if (m.cap) h += '<div class="cap">' + inlH(m.cap) + '</div>'; if (m.text) h += '<p>' + inlH(m.text) + '</p>';
+      if (m.points && m.points.length) h += '<ul>' + m.points.map(t => '<li>' + inlH(t) + '</li>').join('') + '</ul>'; }
+    if (window.ccQ) { h = '<p class="you">“' + window.ccQ + '”</p>' + h; if (!m.q) window.ccQ = ''; }
+    bub.innerHTML = h; words(bub); bub.classList.toggle('on', !!h); sayAt = performance.now();
+    noteMode = !!(m.html && !m.q);
+  };
+  let x = innerWidth - 60, y = innerHeight - 90, tx = x, ty = y, point = null, until = 0, hist = [], noteMode = false;
+  const bubW = () => { const pe = paneEdge(); return pe != null ? Math.max(200, Math.min(380, innerWidth - pe - 36)) : paneFloor() != null ? Math.min(460, innerWidth - 24) : Math.min(340, innerWidth * 0.42); };
+  const notePos = () => { // where my notes sit: the room the world leaves, never on it
+    const bw = bubW(), pf = paneFloor();
+    if (pf != null) return [Math.max(12, (innerWidth - bw) / 2), pf + 6];
+    return [innerWidth - bw - 22, 66];
+  };
+  const home = () => {
+    const say = document.getElementById('see-say'), card = document.querySelector('#cc-work.has-card .w');
+    if (document.body.classList.contains('cc-turn')) { const v = document.querySelector('#cc-load .v').getBoundingClientRect(); return [v.left - 26, v.top + v.height / 2]; }
+    const l = document.querySelector('#see-line textarea'), lr = l && l.getBoundingClientRect(); if (lr && lr.width) return [lr.left - 24, lr.top + lr.height / 2];
+    return [innerWidth - 60, innerHeight - 90];
+  };
+  let lastWalk = null;
+  window.ccReset = () => { // back to rest: this stop's words in the corner, me beside them
+    window.ccQ = ''; point = null; lastWalk = null; tag.textContent = ''; me.classList.remove('tagged');
+    if (window.ccStop) window.ccSay(window.ccStop); noteMode = true;
+  };
+  window.ccPoint = c => { // where I'm looking now
+    if (c && !c.walk) noteMode = false; // a click ends my note; the walk's own pointing does not
+    if (c && c.walk) lastWalk = c;
+    point = c; tag.textContent = c && c.tag || ''; me.classList.toggle('tagged', !!(c && c.tag));
+    if (c && c.zoom && window.seeGo) { // fly there once the world is built (it may still be building)
+      let tries = 0;
+      const go = () => { if (point !== c) return; const w = c.at || (c.id != null && window.seeLocate && window.seeLocate(c.id, c.rel));
+        if (w) window.seeGo(w, c.zoom); else if (tries++ < 60) setTimeout(go, 500); };
+      go();
+    }
+    until = c && c.screen ? performance.now() + 2600 : 0;
+  };
+  // where a card of mine goes (my words, or the box you type in): the room the world leaves. Beside
+  // the world's half, at the height of what it's about; below a tall world; else the top right corner.
+  window.ccSpot = (aim, bw, bh) => {
+    const pe = paneEdge(), pf = paneFloor(), navTop = topOf(document.querySelector('main > header'), innerHeight), floorY = navTop > 0 ? navTop : innerHeight;
+    let cx, cy;
+    if (pf != null) { cx = aim ? aim[0] - 60 : (innerWidth - bw) / 2; cy = pf + 6; }
+    else { cx = pe != null ? pe + 24 : innerWidth - bw - 22; cy = aim ? aim[1] - 26 : 66; }
+    return [Math.max(40, Math.min(innerWidth - bw - 12, cx)), Math.max(60, Math.min(floorY - bh - 12, cy))];
+  };
+  // the spot on a part I'm talking about: its edge on the side my words are
+  function aimAt(p) {
+    if (!p || !window.seeProject) return null;
+    if (p.at && !p.id) return window.seeProject(p.at);
+    if (p.id == null || !window.seeLocate) return null;
+    let pid = p.id; if (!window.seeLocate(pid, [0, 0, 0]) && p.alt) pid = p.alt;
+    if (p.rel) { const w = window.seeLocate(pid, p.rel); return w && window.seeProject(w); }
+    const c1 = window.seeLocate(pid, [1, 0.35, 0]), c2 = window.seeLocate(pid, [-1, 0.35, 0]);
+    const p1 = c1 && window.seeProject(c1), p2 = c2 && window.seeProject(c2);
+    if (!p1 || !p2) return null;
+    const pr = paneFloor() != null ? (p1[1] < p2[1] ? p1 : p2) : (p1[0] > p2[0] ? p1 : p2);
+    return [pr[0] + 6, pr[1]];
+  }
+  window.ccBubAt = () => bx == null ? null : [bx, by];
+  function frame(t) {
+    requestAnimationFrame(frame);
+    const body = document.body, turn = body.classList.contains('cc-turn') && !body.classList.contains('cc-engaged');
+    const askOn = document.getElementById('see-ask'), ar = askOn && askOn.childElementCount ? askOn.getBoundingClientRect() : null;
+    const composing = body.classList.contains('cc-asking');
+    me.classList.toggle('asking', !!ar);
+    // my words: one card, and I ride its corner
+    const bw = bubW(); bub.style.width = bw + 'px';
+    const bh = bub.offsetHeight;
+    if (point && point.screen && performance.now() >= until) { point = lastWalk; tag.textContent = point && point.tag || ''; me.classList.toggle('tagged', !!(point && point.tag)); }
+    const aim = noteMode ? null : aimAt(point);
+    const [wantX, wantY] = window.ccSpot(aim, bw, bh);
+    if (bx == null) { bx = wantX; by = wantY; }
+    bx += (wantX - bx) * 0.12; by += (wantY - by) * 0.12;
+    bub.style.transform = 'translate(' + bx.toFixed(1) + 'px,' + by.toFixed(1) + 'px)';
+    bub.style.visibility = ar || composing ? 'hidden' : 'visible';
+    // me: glued to the card I'm in (my words, or the box you type in), beside a question, or home
+    let glued = null;
+    if (ar) glued = null;
+    else if (composing && point && point.screenFn) glued = point.screenFn();
+    else if (bub.classList.contains('on')) glued = [bx - 18, by + 22];
+    if (glued) { x = glued[0]; y = glued[1]; tx = x; ty = y; }
+    else {
+      const w = ar ? [ar.left - 20, ar.top + 22] : home();
+      tx = Math.max(24, Math.min(innerWidth - 24, w[0])); ty = Math.max(54, Math.min(innerHeight - 40, w[1]));
+      x += (tx - x) * 0.1; y += (ty - y) * 0.1;
+    }
+    const fy = 2 * Math.sin(t / 700);
+    me.style.transform = 'translate(' + x.toFixed(1) + 'px,' + (y + fy).toFixed(1) + 'px)';
+    // a slow turn and a breath, quicker when I'm working
+    const s = t / 1000, busy = body.classList.contains('cc-turn'), deg = (s * (busy ? 120 : 14)) % 360, sc = 1 + (busy ? .1 : .05) * Math.sin(s * (busy ? 6 : 2));
+    lg.setAttribute('transform', 'rotate(' + deg.toFixed(1) + ' 12 12) translate(12 12) scale(' + sc.toFixed(3) + ') translate(-12 -12)');
+    // a faint dotted line from me to what I mean
+    const dpr = devicePixelRatio || 1;
+    if (trail.width !== innerWidth * dpr) { trail.width = innerWidth * dpr; trail.height = innerHeight * dpr; }
+    tg.setTransform(dpr, 0, 0, dpr, 0, 0); tg.clearRect(0, 0, innerWidth, innerHeight); tg.fillStyle = '#D97757';
+    let to = null;
+    if (composing && window.ccAskAim) to = window.ccAskAim();
+    else if (aim && glued && !turn) to = aim;
+    if (to) {
+      const len = Math.hypot(to[0] - x, to[1] - y);
+      if (len > 30) { tg.globalAlpha = .4; for (let d = 16; d < len - 2; d += 7) { const f = d / len; tg.beginPath(); tg.arc(x + (to[0] - x) * f, y + (to[1] - y) * f, 1.2, 0, 6.3); tg.fill(); }
+        tg.globalAlpha = .7; tg.beginPath(); tg.arc(to[0], to[1], 2.6, 0, 6.3); tg.fill(); }
+    }
+    tg.globalAlpha = 1;
+  }
+  requestAnimationFrame(frame);
+  // you're here, moving through: my work shrinks to a tile so the world stays yours
+  let touched = -1e9;
+  const engage = () => { touched = performance.now(); document.body.classList.add('cc-engaged'); };
+  addEventListener('keydown', e => { if (e.key === 'ArrowRight' || e.key === 'ArrowLeft' || e.key === ' ') engage(); }, true);
+  addEventListener('pointerdown', engage, true); addEventListener('wheel', engage, { capture: true, passive: true });
+  setInterval(() => { if (performance.now() - touched > 45000) document.body.classList.remove('cc-engaged'); }, 1000);
+  // you click: I come to look
+  const viz = document.getElementById('viz');
+  // (a click is the composer's: it calls ccPoint itself)
+})();
+</script>

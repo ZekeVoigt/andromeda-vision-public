@@ -1,0 +1,1762 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>See</title>
+<style>
+:root {
+  --bg: #f5f5f4; --ink: #151515; --soft: #5f5f5c; --muted: #a3a3a0; --line: #e3e3e0; --accent: #e4572e;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111111; --ink: #ececea; --soft: #b5b5b2; --muted: #64645f; --line: #2a2a28; --accent: #ff7a4d;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111111; --ink: #ececea; --soft: #b5b5b2; --muted: #64645f; --line: #2a2a28; --accent: #ff7a4d;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); }
+body { font: 15px/1.55 Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 44px 28px 72px; }
+header { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
+h1 { font-size: 16px; font-weight: 500; margin: 0; letter-spacing: -0.005em; }
+.controls { display: flex; gap: 6px; flex-shrink: 0; }
+.controls button {
+  font: inherit; font-size: 13px; color: var(--soft); background: none; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px;
+}
+.controls button:hover { color: var(--ink); border-color: var(--muted); }
+.stage { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 44px; margin-top: 30px; align-items: start; }
+.viz { position: relative; width: 100%; max-width: 520px; aspect-ratio: 1; cursor: grab; touch-action: none; user-select: none; overflow: hidden; }
+.viz:active { cursor: grabbing; }
+.viz canvas { width: 100%; height: 100%; display: block; }
+.labels, .notes { position: absolute; inset: 0; pointer-events: none; }
+.label {
+  position: absolute; font: 12px/1.25 ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--soft);
+  white-space: nowrap; transform: translate(10px, -50%); transition: opacity .35s;
+  background: color-mix(in srgb, var(--bg) 82%, transparent); padding: 1px 3px;
+}
+.label::before { content: ""; position: absolute; left: -7px; top: 50%; width: 4px; height: 4px; background: var(--ink); transform: translate(-50%, -50%); }
+.label.focus { color: var(--ink); }
+.note { position: absolute; color: var(--ink); line-height: 1.3; white-space: pre-wrap; transform: translate(-50%, -50%); text-align: center; transition: opacity .3s; }
+.note.left { transform: translate(0, -50%); text-align: left; }
+.note.lit { color: var(--accent); }
+.note.bold { font-weight: 600; }
+.status { display: flex; align-items: center; gap: 9px; font-size: 14px; font-weight: 500; min-height: 22px; }
+.status .t { color: var(--muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.glyph { display: grid; grid-template-columns: repeat(3, 3px); gap: 1.5px; }
+.glyph i { width: 3px; height: 3px; background: var(--ink); opacity: .25; }
+.glyph i.on { opacity: 1; }
+ol.steps { list-style: none; margin: 12px 0 0; padding: 0 0 0 21px; }
+.steps li { color: var(--muted); padding: 3px 0; cursor: pointer; font-size: 14px; transition: color .3s; }
+.steps li:hover { color: var(--soft); }
+.steps li.now { color: var(--ink); }
+.steps li.hidden { display: none; }
+.steps .detail { display: none; color: var(--soft); font-size: 13.5px; margin: 3px 0 5px; line-height: 1.5; }
+.steps li.now .detail { display: block; }
+.steps ul.pts { display: none; margin: 4px 0 6px; padding-left: 16px; color: var(--soft); font-size: 13px; line-height: 1.5; }
+.steps li.now ul.pts { display: block; }
+.steps ul.pts li { cursor: default; color: var(--soft); padding: 1px 0; }
+.steps code, .detail code { font: 12.5px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: 0 4px; border-radius: 3px; }
+body.wide main { max-width: 1320px; }
+body.wide .stage { grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); }
+body.wide .viz { max-width: 820px; }
+body.world main { max-width: 1560px; }
+body.world .stage { grid-template-columns: minmax(0, 2.1fr) minmax(300px, 1fr); gap: 36px; }
+body.world .viz { max-width: none; aspect-ratio: 1.4; }
+.summary { display: none; margin-top: 30px; padding-top: 20px; border-top: 1px solid var(--line); font-size: 15px; }
+.summary.show { display: block; animation: rise .5s ease; }
+.summary p { margin: 0 0 12px; }
+.summary ul { margin: 0 0 12px; padding-left: 20px; }
+.summary li { margin: 4px 0; }
+.summary code { font: 13px ui-monospace, SFMono-Regular, Menlo, monospace; background: var(--line); padding: 1px 4px; border-radius: 3px; }
+.hint { margin-top: 18px; font-size: 12px; color: var(--muted); }
+@keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@media (max-width: 760px) {
+  main { padding: 24px 16px 48px; }
+  header { flex-direction: column; gap: 10px; }
+  .stage, body.world .stage { grid-template-columns: 1fr; gap: 18px; }
+  .viz { max-width: 100%; }
+}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1 id="title"></h1>
+    <div class="controls">
+      <button id="prev" title="Previous (←)">←</button>
+      <button id="play" title="Play / pause (space)">Pause</button>
+      <button id="next" title="Next (→)">→</button>
+    </div>
+  </header>
+  <div class="stage">
+    <div class="viz" id="viz"><canvas id="c"></canvas><div class="notes" id="notes"></div><div class="labels" id="labels"></div></div>
+    <div>
+      <div class="status"><span class="glyph" id="glyph"></span><span id="phase">Seeing</span><span class="t" id="clock"></span></div>
+      <ol class="steps" id="steps"></ol>
+      <div class="summary" id="summary"></div>
+      <div class="hint" id="hint">Drag to turn it · scroll to zoom · ← → to step · space to pause</div>
+    </div>
+  </div>
+</main>
+<script id="geo" type="text/plain">
+// ---------- math ----------
+const TAU = Math.PI * 2;
+const v3 = (a, d) => (Array.isArray(a) && a.length === 3 ? a.map(Number) : d);
+const norm = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+const mul = (M, v) => [
+  M[0][0] * v[0] + M[0][1] * v[1] + M[0][2] * v[2],
+  M[1][0] * v[0] + M[1][1] * v[1] + M[1][2] * v[2],
+  M[2][0] * v[0] + M[2][1] * v[1] + M[2][2] * v[2],
+];
+const mm = (A, B) => A.map(r => [0, 1, 2].map(j => r[0] * B[0][j] + r[1] * B[1][j] + r[2] * B[2][j]));
+const T3 = M => [0, 1, 2].map(i => [M[0][i], M[1][i], M[2][i]]);
+const I3 = [[1, 0, 0], [0, 1, 0], [0, 0, 1]];
+const det3 = M => M[0][0] * (M[1][1] * M[2][2] - M[1][2] * M[2][1]) - M[0][1] * (M[1][0] * M[2][2] - M[1][2] * M[2][0]) + M[0][2] * (M[1][0] * M[2][1] - M[1][1] * M[2][0]);
+function inv3(M) {
+  const [a, b, c] = M[0], [d, e, f] = M[1], [g, h, i] = M[2], D = det3(M) || 1e-12;
+  return [
+    [(e * i - f * h) / D, -(b * i - c * h) / D, (b * f - c * e) / D],
+    [-(d * i - f * g) / D, (a * i - c * g) / D, -(a * f - c * d) / D],
+    [(d * h - e * g) / D, -(a * h - b * g) / D, (a * e - b * d) / D],
+  ];
+}
+function euler(deg) { // Rz * Ry * Rx
+  const [a, b, c] = deg.map(d => d * Math.PI / 180);
+  const ca = Math.cos(a), sa = Math.sin(a), cb = Math.cos(b), sb = Math.sin(b), cc = Math.cos(c), sc = Math.sin(c);
+  return [
+    [cb * cc, sa * sb * cc - ca * sc, ca * sb * cc + sa * sc],
+    [cb * sc, sa * sb * sc + ca * cc, ca * sb * sc - sa * cc],
+    [-sb, sa * cb, ca * cb],
+  ];
+}
+function basisY(d) { // rotation taking +y to d
+  const h = Math.abs(d[1]) < 0.99 ? [0, 1, 0] : [1, 0, 0];
+  const x = norm(cross(h, d)), z = cross(x, d);
+  return [[x[0], d[0], z[0]], [x[1], d[1], z[1]], [x[2], d[2], z[2]]];
+}
+function rng(seed) {
+  return () => {
+    seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+const pick = (cum, u) => { let lo = 0, hi = cum.length - 1; while (lo < hi) { const m = (lo + hi) >> 1; if (cum[m] < u) lo = m + 1; else hi = m; } return lo; };
+const cumsum = a => { const c = new Float64Array(a.length); let s = 0; a.forEach((v, i) => { s += v; c[i] = s; }); return c; };
+function catmull(pts, closed, k = 8) { // a smooth curve through the points
+  const n = pts.length, out = [], dim = pts[0].length;
+  if (n < 3) return pts.slice();
+  const at = i => pts[closed ? (i + n) % n : Math.max(0, Math.min(n - 1, i))];
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) for (let s = 0; s < k; s++) {
+    const t = s / k, p0 = at(i - 1), p1 = at(i), p2 = at(i + 1), p3 = at(i + 2), q = [];
+    for (let d = 0; d < dim; d++) q.push(0.5 * (2 * p1[d] + (p2[d] - p0[d]) * t + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * t * t + (3 * p1[d] - p0[d] - 3 * p2[d] + p3[d]) * t * t * t));
+    out.push(q);
+  }
+  if (!closed) out.push(pts[n - 1].slice());
+  return out;
+}
+function inPoly(rings, x, y) { // even-odd over every ring, so holes are holes
+  let c = false;
+  for (const r of rings) for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+    if ((r[i][1] > y) !== (r[j][1] > y) && x < (r[j][0] - r[i][0]) * (y - r[i][1]) / (r[j][1] - r[i][1]) + r[i][0]) c = !c;
+  }
+  return c;
+}
+
+// ---------- shapes: each is {area, sample(r) -> [p, n, tone?], inside?(q), two?} in its own space ----------
+function box(w, h, d, round = 0) {
+  const e = 1e-3, rr = Math.max(0, Math.min(round, w / 2, h / 2, d / 2) - 1e-6);
+  if (rr <= 0) {
+    const ax = h * d, ay = w * d, az = w * h;
+    return { area: 2 * (ax + ay + az), inside: q => Math.abs(q[0]) < w / 2 - e && Math.abs(q[1]) < h / 2 - e && Math.abs(q[2]) < d / 2 - e, sample(r) {
+      const u = r() * (ax + ay + az), s = r() < 0.5 ? -1 : 1;
+      const p = [(r() - .5) * w, (r() - .5) * h, (r() - .5) * d], n = [0, 0, 0];
+      const k = u < ax ? 0 : u < ax + ay ? 1 : 2;
+      p[k] = s * [w, h, d][k] / 2; n[k] = s;
+      return [p, n];
+    } };
+  }
+  const b = [w / 2 - rr, h / 2 - rr, d / 2 - rr];
+  const faceA = [0, 1, 2].map(a => 8 * b[(a + 1) % 3] * b[(a + 2) % 3]);
+  const edgeA = [0, 1, 2].map(a => 4 * Math.PI * rr * b[a]);
+  const parts = [...faceA, ...edgeA, 4 * Math.PI * rr * rr], cum = cumsum(parts), total = cum[6];
+  return { area: total, inside(q) {
+    const k = q.map((v, a) => Math.abs(v) - b[a]);
+    return Math.hypot(Math.max(k[0], 0), Math.max(k[1], 0), Math.max(k[2], 0)) + Math.min(Math.max(...k), 0) < rr - e;
+  }, sample(r) {
+    const c = pick(cum, r() * total), sg = () => (r() < 0.5 ? -1 : 1);
+    const p = [0, 0, 0], n = [0, 0, 0];
+    if (c < 3) {
+      const a = c, s = sg(); p[a] = s * (b[a] + rr); n[a] = s;
+      for (const o of [(a + 1) % 3, (a + 2) % 3]) p[o] = (r() * 2 - 1) * b[o];
+    } else if (c < 6) {
+      const a = c - 3, a1 = (a + 1) % 3, a2 = (a + 2) % 3, s1 = sg(), s2 = sg(), t = r() * Math.PI / 2;
+      p[a] = (r() * 2 - 1) * b[a];
+      p[a1] = s1 * (b[a1] + rr * Math.cos(t)); n[a1] = s1 * Math.cos(t);
+      p[a2] = s2 * (b[a2] + rr * Math.sin(t)); n[a2] = s2 * Math.sin(t);
+    } else {
+      const d = norm([r() - .5, r() - .5, r() - .5]);
+      for (let a = 0; a < 3; a++) { p[a] = Math.sign(d[a]) * b[a] + rr * d[a]; n[a] = d[a]; }
+    }
+    return [p, n];
+  } };
+}
+function sphere(rad, dome = false) {
+  const cap = dome ? Math.PI * rad * rad : 0, shell = (dome ? 1 : 2) * TAU * rad * rad;
+  return { area: shell + cap, inside: q => (!dome || q[1] > 1e-3) && q[0] * q[0] + q[1] * q[1] + q[2] * q[2] < (rad - 1e-3) ** 2, sample(r) {
+    if (dome && r() * (shell + cap) < cap) { const a = r() * TAU, q = rad * Math.sqrt(r()); return [[q * Math.cos(a), 0, q * Math.sin(a)], [0, -1, 0]]; }
+    let z = 2 * r() - 1; if (dome) z = Math.abs(z);
+    const a = r() * TAU, q = Math.sqrt(1 - z * z), n = [q * Math.cos(a), z, q * Math.sin(a)];
+    return [[n[0] * rad, n[1] * rad, n[2] * rad], n];
+  } };
+}
+function frustum(r1, r2, hei, open = false) { // a cylinder whose top radius may differ; r2 = 0 is a cone
+  const sl = Math.hypot(hei, r1 - r2), side = Math.PI * (r1 + r2) * sl;
+  const bot = open ? 0 : Math.PI * r1 * r1, top = open ? 0 : Math.PI * r2 * r2, total = side + bot + top, rm = Math.max(r1, r2);
+  return { area: total, two: open, h: hei, rmax: Math.max(r1, r2), inside(q) {
+    if (Math.abs(q[1]) >= hei / 2 - 1e-3) return false;
+    const m = r1 + (r2 - r1) * (q[1] / hei + 0.5) - 1e-3; return q[0] * q[0] + q[2] * q[2] < m * m;
+  }, sample(r) {
+    const a = r() * TAU, c = Math.cos(a), s = Math.sin(a), u = r() * total;
+    if (u < side) {
+      let t, rr; do { t = r(); rr = r1 + (r2 - r1) * t; } while (r() * rm > rr);
+      return [[c * rr, -hei / 2 + t * hei, s * rr], norm([c * hei, r1 - r2, s * hei])];
+    }
+    const isTop = u >= side + bot, R = isTop ? r2 : r1, q = R * Math.sqrt(r());
+    return [[c * q, (isTop ? 1 : -1) * hei / 2, s * q], [0, isTop ? 1 : -1, 0]];
+  } };
+}
+function capsule(rad, hei) {
+  const side = TAU * rad * hei, ends = 2 * TAU * rad * rad;
+  return { area: side + ends, inside(q) { const y = Math.max(-hei / 2, Math.min(hei / 2, q[1])); return q[0] * q[0] + (q[1] - y) ** 2 + q[2] * q[2] < (rad - 1e-3) ** 2; }, sample(r) {
+    if (r() * (side + ends) < side) { const a = r() * TAU, c = Math.cos(a), s = Math.sin(a); return [[c * rad, (r() - .5) * hei, s * rad], [c, 0, s]]; }
+    const d = norm([r() - .5, r() - .5, r() - .5]);
+    return [[d[0] * rad, d[1] * rad + Math.sign(d[1] || 1) * hei / 2, d[2] * rad], d];
+  } };
+}
+function torus(R, rt, arcDeg = 360) {
+  const arc = Math.min(360, Math.max(1, arcDeg)) * Math.PI / 180;
+  return { area: arc * TAU * R * rt, inside(q) {
+    if (arc < TAU) { let u = Math.atan2(q[2], q[0]); if (u < 0) u += TAU; if (u > arc) return false; }
+    return (Math.hypot(q[0], q[2]) - R) ** 2 + q[1] * q[1] < (rt - 1e-3) ** 2;
+  }, sample(r) {
+    for (;;) {
+      const u = r() * arc, v = r() * TAU;
+      if (r() * (R + rt) > R + rt * Math.cos(v)) continue;
+      const q = R + rt * Math.cos(v);
+      return [[q * Math.cos(u), rt * Math.sin(v), q * Math.sin(u)], [Math.cos(v) * Math.cos(u), Math.sin(v), Math.cos(v) * Math.sin(u)]];
+    }
+  } };
+}
+function extrude(rings, depth) { // outline (and holes) in the x-y plane, given thickness along z
+  const r0 = rng(5), all = rings.flat(), lo = [Math.min(...all.map(p => p[0])), Math.min(...all.map(p => p[1]))], hi = [Math.max(...all.map(p => p[0])), Math.max(...all.map(p => p[1]))];
+  const bw = hi[0] - lo[0], bh = hi[1] - lo[1];
+  let hits = 0; for (let i = 0; i < 3000; i++) if (inPoly(rings, lo[0] + r0() * bw, lo[1] + r0() * bh)) hits++;
+  const capA = Math.max(1e-6, bw * bh * hits / 3000), eps = 1e-3 * Math.max(bw, bh);
+  const edges = [];
+  for (const ring of rings) for (let i = 0; i < ring.length; i++) {
+    const a = ring[i], b = ring[(i + 1) % ring.length], dx = b[0] - a[0], dy = b[1] - a[1], len = Math.hypot(dx, dy);
+    if (len < 1e-9) continue;
+    let nx = dy / len, ny = -dx / len;
+    if (inPoly(rings, (a[0] + b[0]) / 2 + nx * eps, (a[1] + b[1]) / 2 + ny * eps)) { nx = -nx; ny = -ny; }
+    edges.push({ a, dx, dy, nx, ny, len });
+  }
+  const cum = cumsum(edges.map(e => e.len * depth)), sideA = cum[cum.length - 1] || 0, total = sideA + 2 * capA;
+  return { area: total, inside: q => Math.abs(q[2]) < depth / 2 - 1e-3 && inPoly(rings, q[0], q[1]), sample(r) {
+    if (r() * total < sideA) {
+      const e = edges[pick(cum, r() * sideA)], t = r();
+      return [[e.a[0] + e.dx * t, e.a[1] + e.dy * t, (r() - .5) * depth], [e.nx, e.ny, 0]];
+    }
+    const s = r() < 0.5 ? -1 : 1;
+    for (let g = 0; g < 400; g++) { const x = lo[0] + r() * bw, y = lo[1] + r() * bh; if (inPoly(rings, x, y)) return [[x, y, s * depth / 2], [0, 0, s]]; }
+    return [[lo[0] + bw / 2, lo[1] + bh / 2, s * depth / 2], [0, 0, s]];
+  } };
+}
+function lathe(profile) { // [r, y] points spun around the y axis
+  const segs = [];
+  for (let i = 0; i + 1 < profile.length; i++) {
+    const [ra, ya] = profile[i], [rb, yb] = profile[i + 1], dr = rb - ra, dy = yb - ya, len = Math.hypot(dr, dy);
+    if (len < 1e-9 || ra + rb <= 0) continue;
+    segs.push({ ra: Math.max(0, ra), ya, dr, dy, len, nr: dy / len, ny: -dr / len, rm: Math.max(ra, rb, 1e-9) });
+  }
+  const cum = cumsum(segs.map(s => Math.PI * (s.ra * 2 + s.dr) * s.len)), total = cum[cum.length - 1] || 1e-6;
+  const poly = [[[0, profile[0][1]], ...profile, [0, profile[profile.length - 1][1]]]];
+  return { area: total, two: true, inside: q => inPoly(poly, Math.hypot(q[0], q[2]), q[1]), sample(r) {
+    const s = segs[pick(cum, r() * total)];
+    let t, rr; do { t = r(); rr = s.ra + s.dr * t; } while (r() * s.rm > rr);
+    const a = r() * TAU, c = Math.cos(a), si = Math.sin(a);
+    return [[c * rr, s.ya + s.dy * t, si * rr], norm([c * s.nr, s.ny, si * s.nr])];
+  } };
+}
+function surface(spec) { // x, y, z as expressions of u and v, each 0..1
+  const f = new Function('u', 'v', 'const {sin,cos,tan,asin,acos,atan,atan2,abs,sqrt,pow,exp,log,min,max,floor,ceil,round,sign,hypot,PI,E}=Math; const pi=PI;' +
+    `return [${spec.x}, ${spec.y}, ${spec.z}];`);
+  const K = 48, cells = [], areas = [];
+  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) {
+    const a = f(i / K, j / K), b = f((i + 1) / K, j / K), c = f(i / K, (j + 1) / K), d = f((i + 1) / K, (j + 1) / K);
+    const t1 = cross([b[0] - a[0], b[1] - a[1], b[2] - a[2]], [c[0] - a[0], c[1] - a[1], c[2] - a[2]]);
+    const t2 = cross([c[0] - d[0], c[1] - d[1], c[2] - d[2]], [b[0] - d[0], b[1] - d[1], b[2] - d[2]]);
+    cells.push([i, j]); areas.push((Math.hypot(...t1) + Math.hypot(...t2)) / 2 + 1e-12);
+  }
+  const cum = cumsum(areas), total = cum[cum.length - 1], h = 1e-3;
+  return { area: total, two: true, sample(r) {
+    const [i, j] = cells[pick(cum, r() * total)], u = (i + r()) / K, v = (j + r()) / K;
+    const p = f(u, v), pu = f(Math.min(1, u + h), v), pv = f(u, Math.min(1, v + h)), qu = f(Math.max(0, u - h), v), qv = f(u, Math.max(0, v - h));
+    return [p, norm(cross([pu[0] - qu[0], pu[1] - qu[1], pu[2] - qu[2]], [pv[0] - qv[0], pv[1] - qv[1], pv[2] - qv[2]]))];
+  } };
+}
+// a 2D raster (text, emoji, image) as a slab: its silhouette is the outline, its picture shades the face
+function raster(px, W, H, size, depth, relief, mode, contrast) {
+  const alpha = [], lum = [];
+  let anyClear = false;
+  for (let i = 0; i < W * H; i++) {
+    const a = px[i * 4 + 3] / 255; alpha.push(a); if (a < 0.5) anyClear = true;
+    lum.push(a < 0.05 ? 1 : (0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]) / 255);
+  }
+  if (mode === 'auto') mode = anyClear ? 'alpha' : 'all';
+  const on = i => mode === 'all' ? true : mode === 'dark' ? lum[i] < 0.5 && alpha[i] > 0.5 : mode === 'light' ? lum[i] >= 0.5 && alpha[i] > 0.5 : alpha[i] > 0.5;
+  const mask = new Uint8Array(W * H); let x0 = W, y0 = H, x1 = 0, y1 = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (on(y * W + x)) { mask[y * W + x] = 1; x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
+  if (x1 < x0) throw new Error('a text, glyph or image shape came out empty');
+  const s = size / (y1 - y0 + 1), cx = (x0 + x1 + 1) / 2, cy = (y0 + y1 + 1) / 2;
+  const height = (x, y) => relief * (1 - lum[y * W + x]);
+  const front = [], sides = [];
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (!mask[y * W + x]) continue;
+    front.push(y * W + x);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      const X = x + dx, Y = y + dy;
+      if (X < 0 || Y < 0 || X >= W || Y >= H || !mask[Y * W + X]) sides.push([x, y, dx, dy]);
+    }
+  }
+  const capA = front.length * s * s, sideA = sides.length * s * depth, total = 2 * capA + sideA;
+  return { area: total, inside(q) {
+    const x = Math.floor(q[0] / s + cx), y = Math.floor(cy - q[1] / s);
+    return x >= 0 && y >= 0 && x < W && y < H && mask[y * W + x] === 1 && Math.abs(q[2]) < depth / 2 - 1e-3;
+  }, sample(r) {
+    const u = r() * total;
+    if (u < sideA) {
+      const [x, y, dx, dy] = sides[(r() * sides.length) | 0], t = r();
+      const X = dx ? x + (dx > 0 ? 1 : 0) : x + t, Y = dy ? y + (dy > 0 ? 1 : 0) : y + t;
+      return [[(X - cx) * s, (cy - Y) * s, (r() - .5) * depth], [dx, -dy, 0]];
+    }
+    const j = front[(r() * front.length) | 0], x = j % W, y = (j / W) | 0, back = u >= sideA + capA;
+    if (back) return [[(x + r() - cx) * s, (cy - y - r()) * s, -depth / 2], [0, 0, -1]];
+    const X = Math.min(W - 2, Math.max(1, x)), Y = Math.min(H - 2, Math.max(1, y));
+    const gx = (height(X + 1, Y) - height(X - 1, Y)) / (2 * s), gy = (height(X, Y - 1) - height(X, Y + 1)) / (2 * s);
+    return [[(x + r() - cx) * s, (cy - y - r()) * s, depth / 2 + height(x, y)], norm([-gx, -gy, 1]), (0.55 - lum[j]) * 2.4 * contrast];
+  } };
+}
+const scratch = new OffscreenCanvas(8, 8), sctx = scratch.getContext('2d', { willReadFrequently: true });
+function drawText(text, font, emoji) {
+  const lines = String(text).split('\n'), px = 96, lh = px * 1.15;
+  sctx.font = font || `700 ${px}px Inter, -apple-system, Helvetica, Arial, sans-serif`;
+  const w = Math.ceil(Math.max(...lines.map(l => sctx.measureText(l).width))) + 24, h = Math.ceil(lh * lines.length + 24);
+  scratch.width = Math.min(2400, w); scratch.height = Math.min(1200, h);
+  sctx.font = font || `700 ${px}px Inter, -apple-system, Helvetica, Arial, sans-serif`;
+  sctx.textBaseline = 'top'; sctx.fillStyle = emoji ? '#000' : '#000';
+  lines.forEach((l, i) => sctx.fillText(l, 12, 12 + i * lh));
+  return [sctx.getImageData(0, 0, scratch.width, scratch.height).data, scratch.width, scratch.height];
+}
+function drawImage(img, maxSide = 180) {
+  const iw = img.naturalWidth || img.width, ih = img.naturalHeight || img.height, k = Math.min(1, maxSide / Math.max(iw, ih));
+  scratch.width = Math.max(2, Math.round(iw * k)); scratch.height = Math.max(2, Math.round(ih * k));
+  sctx.clearRect(0, 0, scratch.width, scratch.height); sctx.drawImage(img, 0, 0, scratch.width, scratch.height);
+  return [sctx.getImageData(0, 0, scratch.width, scratch.height).data, scratch.width, scratch.height];
+}
+const b64 = (s, T) => { const bin = atob(s), u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return new T(u.buffer); };
+const meshCache = {};
+function mesh(asset) { // triangles from a model file, normalized to fit 1 unit by build.py
+  if (meshCache[asset.id]) return meshCache[asset.id];
+  const V = b64(asset.v, Float32Array), F = b64(asset.f, Uint32Array), nt = F.length / 3;
+  const fn = new Float32Array(nt * 3), areas = new Float64Array(nt), vn = new Float32Array(V.length);
+  for (let t = 0; t < nt; t++) {
+    const a = F[t * 3] * 3, b = F[t * 3 + 1] * 3, c = F[t * 3 + 2] * 3;
+    const n = cross([V[b] - V[a], V[b + 1] - V[a + 1], V[b + 2] - V[a + 2]], [V[c] - V[a], V[c + 1] - V[a + 1], V[c + 2] - V[a + 2]]);
+    const l = Math.hypot(...n) || 1e-12; areas[t] = l / 2;
+    fn.set([n[0] / l, n[1] / l, n[2] / l], t * 3);
+    for (const v of [a, b, c]) { vn[v] += n[0]; vn[v + 1] += n[1]; vn[v + 2] += n[2]; }
+  }
+  const cum = cumsum(areas), total = cum[nt - 1];
+  // color: per-corner UV + per-triangle material (factor x texture), or per-corner vertex colors
+  const UV = asset.uv ? b64(asset.uv, Float32Array) : null, TM = asset.tm ? b64(asset.tm, Uint16Array) : null;
+  const VC = asset.vc ? b64(asset.vc, Uint8Array) : null, TP = asset.tp ? b64(asset.tp, Uint16Array) : null;
+  const MATS = asset.mats || [], TEX = (asset.tex || []).map(t => ({ w: t.w, h: t.h, d: b64(t.d, Uint8Array) }));
+  const colorAt = (t, w) => {
+    let c = null;
+    if (VC) { c = [0, 0, 0]; for (let m = 0; m < 3; m++) for (let d = 0; d < 3; d++) c[d] += VC[(t * 3 + m) * 3 + d] / 255 * w[m]; }
+    const mt = TM ? MATS[TM[t]] : null;
+    if (mt) {
+      let base = mt.f ? mt.f.slice(0, 3) : [1, 1, 1];
+      if (mt.t != null && TEX[mt.t] && UV) {
+        let u = 0, v = 0; for (let m = 0; m < 3; m++) { u += UV[(t * 3 + m) * 2] * w[m]; v += UV[(t * 3 + m) * 2 + 1] * w[m]; }
+        const T = TEX[mt.t], x = Math.min(T.w - 1, Math.floor((u - Math.floor(u)) * T.w)), y = Math.min(T.h - 1, Math.floor((v - Math.floor(v)) * T.h)), k = (y * T.w + x) * 3;
+        base = [base[0] * T.d[k] / 255, base[1] * T.d[k + 1] / 255, base[2] * T.d[k + 2] / 255];
+      }
+      c = c ? [c[0] * base[0], c[1] * base[1], c[2] * base[2]] : base;
+    }
+    return c;
+  };
+  const g = { area: total, two: true, parts: asset.parts || null, sample(r) {
+    const t = pick(cum, r() * total);
+    let u = r(), v = r(); if (u + v > 1) { u = 1 - u; v = 1 - v; }
+    const ix = [F[t * 3] * 3, F[t * 3 + 1] * 3, F[t * 3 + 2] * 3], w = [1 - u - v, u, v];
+    const p = [0, 0, 0], sn = [0, 0, 0], f = [fn[t * 3], fn[t * 3 + 1], fn[t * 3 + 2]];
+    ix.forEach((k, m) => { for (let d = 0; d < 3; d++) { p[d] += V[k + d] * w[m]; } });
+    // smooth where the surface is smooth, crisp across a hard edge
+    ix.forEach((k, m) => { let q = norm([vn[k], vn[k + 1], vn[k + 2]]); if (q[0] * f[0] + q[1] * f[1] + q[2] * f[2] < 0.8) q = f; for (let d = 0; d < 3; d++) sn[d] += q[d] * w[m]; });
+    return [p, norm(sn), 0, colorAt(t, w), TP ? TP[t] : -1];
+  } };
+  return (meshCache[asset.id] = g);
+}
+
+// ---------- the scene tree -> parts, each with its transform into world space ----------
+let ASSETS = {}, IMAGES = {}, WORLDS = [];
+let N = 40000, G = 220, ASPECT = 1; // set by the page: points per view, grid rows, canvas width / height
+const D = 3.5, FF = 1.45;           // the camera: distance, and focal length in grid rows
+const sub = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const scl = (a, k) => [a[0] * k, a[1] * k, a[2] * k], dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+const IDENT = { M: I3, at: [0, 0, 0] };
+function shapeOf(p) {
+  const t = p.type, num = (k, d) => (typeof p[k] === 'number' ? p[k] : d);
+  if (t === 'box') { const [w, h, d] = v3(p.size, [1, 1, 1]); return [box(w, h, d, num('round', 0))]; }
+  if (t === 'sphere') return [sphere(num('radius', 0.5))];
+  if (t === 'dome') return [sphere(num('radius', 0.5), true)];
+  if (t === 'cylinder') return [frustum(num('radius', 0.5), num('radius2', num('radius', 0.5)), num('height', 1), !!p.open)];
+  if (t === 'cone') return [frustum(num('radius', 0.5), num('radius2', 0), num('height', 1), !!p.open)];
+  if (t === 'capsule') return [capsule(num('radius', 0.25), num('height', 0.5))];
+  if (t === 'torus') { const R = num('radius', 0.5); return [torus(R, num('tube', R * 0.3), num('arc', 360))]; }
+  if (t === 'extrude') {
+    const sm = r => (p.smooth ? catmull(r, true) : r);
+    return [extrude([sm(p.points), ...(p.holes || []).map(sm)], num('depth', 0.2))];
+  }
+  if (t === 'lathe') return [lathe(p.smooth ? catmull(p.profile, false) : p.profile)];
+  if (t === 'surface') return [surface(p)];
+  if (t === 'text' || t === 'glyph') {
+    const [px, W, H] = drawText(t === 'glyph' ? p.char : p.text, p.font, t === 'glyph');
+    return [raster(px, W, H, num('size', 1), num('depth', t === 'glyph' ? 0.12 : 0.2), num('relief', t === 'glyph' ? 0.06 : 0), 'alpha', num('contrast', t === 'glyph' ? 1 : 0))];
+  }
+  if (t === 'image') {
+    const img = IMAGES[p.src]; if (!img) throw new Error('image not loaded: ' + p.src);
+    const [px, W, H] = drawImage(img, num('resolution', 180));
+    return [raster(px, W, H, num('size', 1), num('depth', 0.08), num('relief', 0.08), p.mask || 'auto', num('contrast', 1))];
+  }
+  if (t === 'mesh') return [Object.assign({}, mesh(ASSETS[p.src]), { two: !!p.twoSided })];
+  if (t === 'tube' || t === 'arrow' || t === 'curve') return null; // built in world terms below
+  throw new Error('unknown shape type: ' + t);
+}
+// a frustum between two points, as a part in its parent's space
+function rod(a, b, r1, r2, t0 = 0, t1 = 1) { // t0..t1: how far along its path this piece runs
+  const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d) || 1e-6;
+  return { g: frustum(r1, r2, len, false), M: basisY(norm(d)), at: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2, (a[2] + b[2]) / 2], t0, t1, path: true, r1, r2, len };
+}
+function pathParts(p) {
+  const num = (k, d) => (typeof p[k] === 'number' ? p[k] : d);
+  if (p.type === 'tube' || p.type === 'arrow') {
+    const a = v3(p.from, [0, 0, 0]), b = v3(p.to, [0, 1, 0]), rad = num('radius', 0.05);
+    if (p.type === 'tube') return [rod(a, b, rad, rad, 0, 1)];
+    const d = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], len = Math.hypot(...d) || 1e-6, u = norm(d);
+    const hl = Math.min(len * 0.4, rad * 7), m = [b[0] - u[0] * hl, b[1] - u[1] * hl, b[2] - u[2] * hl];
+    return [rod(a, m, rad, rad, 0, 1 - hl / len), rod(m, b, rad * 2.8, 0, 1 - hl / len, 1)];
+  }
+  // curve: a tube along a smooth path, its radius one number or one per point
+  const pts = p.path, rs = Array.isArray(p.radius) ? p.radius : pts.map(() => num('radius', 0.05));
+  const both = pts.map((q, i) => [...q, rs[Math.min(i, rs.length - 1)]]);
+  const line = p.smooth === false ? both : catmull(both, !!p.closed, 6);
+  const out = [];
+  const segs = line.length - 1;
+  for (let i = 0; i < segs; i++) out.push(rod(line[i].slice(0, 3), line[i + 1].slice(0, 3), Math.max(1e-4, line[i][3]), Math.max(1e-4, line[i + 1][3]), i / segs, (i + 1) / segs));
+  return out;
+}
+const nodeM = p => mm(euler(v3(p.rot, [0, 0, 0])), (() => { const s0 = typeof p.scale === 'number' ? [p.scale, p.scale, p.scale] : v3(p.scale, [1, 1, 1]); const m = p.type === 'mesh' && typeof p.size === 'number' ? p.size : 1; const s = s0.map(v => v * m); return [[s[0], 0, 0], [0, s[1], 0], [0, 0, s[2]]]; })());
+const compose = (X, M, at) => { const o = mul(X.M, at); return { M: mm(X.M, M), at: [X.at[0] + o[0], X.at[1] + o[1], X.at[2] + o[2]] }; };
+const ANIMS = { glow: 1, pulse: 2, flow: 3 };
+const animOf = a => ({ kind: ANIMS[a.type] || 1, period: Math.max(0.2, a.period ?? 2), delay: a.delay ?? 0,
+  strength: Math.max(0, Math.min(1, a.strength ?? 1)), reverse: !!a.reverse });
+// the camera's rotation: x' = cy x + sy z; y' = sy sp x + cp y - cy sp z; z' = -sy cp x + sp y + cy cp z
+function rotOf(yaw, pitch) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return [[cy, 0, sy], [sy * sp, cp, -cy * sp], [-sy * cp, sp, cy * cp]];
+}
+const INH0 = { tone: 0, lid: -1, anim: null, hi: false, style: undefined, focus: false, quiet: false, ids: [] };
+const newCtx = (cam, stop) => ({ out: [], labels: [], labelIds: [], notes: [], links: [], ids: new Map(), cam, stop, pid: 0, pinfo: [null] });
+function idsUnder(nodes, acc = []) {
+  for (const p of nodes || []) if (p && typeof p === 'object') {
+    if (p.id != null) acc.push(String(p.id));
+    idsUnder(p.parts, acc); if (p.part) idsUnder([p.part], acc); idsUnder(p.zoom, acc);
+  }
+  return acc;
+}
+function unite(...lists) {
+  let lo = null, hi = null;
+  for (const l of lists) for (const x of l) {
+    if (!lo) { lo = x.lo.slice(); hi = x.hi.slice(); continue; }
+    for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], x.lo[a]); hi[a] = Math.max(hi[a], x.hi[a]); }
+  }
+  return lo && { lo, hi };
+}
+// a node's box in world terms, closed (its zoom detail not opened), from a quick expansion; cached
+const tkey = X => X.M[0].concat(X.M[1], X.M[2], X.at).map(v => Math.round(v * 1e5)).join(',');
+const bcache = new WeakMap();
+function nodeBox(p, X) {
+  let m = bcache.get(p); if (!m) bcache.set(p, (m = new Map()));
+  const k = tkey(X); let b = m.get(k);
+  if (!b) {
+    const ctx = newCtx(null, null); expand([p], X, INH0, ctx);
+    b = unite(ctx.out, ctx.notes) || { lo: X.at.slice(), hi: X.at.slice() };
+    m.set(k, b);
+  }
+  return b;
+}
+// how much of the view's height a box fills from this camera (0 when it is off screen)
+function filling(b, cam) {
+  const c = scl(add(b.lo, b.hi), 0.5), rad = dist3(b.lo, b.hi) / 2;
+  const q = mul(cam.R, scl(sub(c, cam.c), 1 / cam.r)), depth = D - q[2];
+  if (depth < 0.3 + rad / cam.r) return 99; // the camera is at or inside it
+  const s = FF / depth, pr = rad / cam.r * s;
+  if (Math.abs(q[0] * s) - pr > ASPECT * 0.5 + 0.05 || Math.abs(q[1] * s) - pr > 0.55) return 0;
+  return 2 * pr;
+}
+let presampleSeed = 1;
+function expand(nodes, X, inh, ctx) {
+  const st = ctx.stop;
+  for (const p of nodes || []) {
+    if (!p || typeof p !== 'object') continue;
+    const id = p.id != null ? String(p.id) : null;
+    if (id && st && st.hide.has(id)) continue;
+    const own = { tone: typeof p.tone === 'number' ? p.tone : inh.tone, lid: inh.lid,
+      anim: id && st && st.animate[id] ? animOf(st.animate[id]) : p.animate ? animOf(p.animate) : inh.anim,
+      hi: (id && st && st.highlight.has(id)) || (typeof p.highlight === 'boolean' ? p.highlight : inh.hi),
+      style: p.style || inh.style, focus: inh.focus || !!(id && st && st.focus.has(id)),
+      quiet: typeof p.quiet === 'boolean' ? p.quiet : inh.quiet, ids: id ? (inh.ids || []).concat(id) : inh.ids || [] };
+    if (p.label) { ctx.labels.push(String(p.label)); ctx.labelIds.push(id); own.lid = ctx.labels.length - 1; }
+    const here = compose(X, nodeM(p), v3(p.at, [0, 0, 0]));
+    const start = ctx.out.length, nstart = ctx.notes.length;
+    const closed = expandOne(p, X, here, own, ctx);
+    const range = { from: start, to: ctx.out.length, nfrom: nstart, nto: ctx.notes.length };
+    if (id) ctx.ids.set(id, range);
+    if (closed) { // what is inside a closed node is, for now, that node
+      const inner = idsUnder(p.zoom);
+      for (const k of inner) if (!ctx.ids.has(k)) ctx.ids.set(k, Object.assign({ alias: true }, range));
+      if (st) {
+        const f = inner.some(k => st.focus.has(k)), h = inner.some(k => st.highlight.has(k));
+        for (let i = start; i < ctx.out.length; i++) { if (f) ctx.out[i].focus = true; if (h) ctx.out[i].lit = 1; }
+        if (f) for (let i = nstart; i < ctx.notes.length; i++) ctx.notes[i].focus = true;
+      }
+    }
+  }
+}
+function expandOne(p, X, here, own, ctx) {
+  let closed = false;
+  if (Array.isArray(p.zoom) && p.zoom.length) {
+    let b = ctx.cam && nodeBox(p, X);
+    if (b && dist3(b.lo, b.hi) < 1e-9) b = nodeBox(p.__zg || (p.__zg = { type: 'group', parts: p.zoom, at: p.at, rot: p.rot, scale: p.scale }), X);
+    if (b && filling(b, ctx.cam) >= (typeof p.zoomAt === 'number' ? p.zoomAt : 0.45)) {
+      expand(p.zoom, here, own, ctx); return false;
+    }
+    closed = true;
+  }
+  const t = p.type;
+  if (t === 'group') { expand(p.parts, here, own, ctx); return closed; }
+  if (t === 'mirror') {
+    const ax = { x: 0, y: 1, z: 2 }[p.axis || 'x'] ?? 0, F = I3.map((r, i) => r.map((v, j) => (i === j && i === ax ? -1 : v)));
+    expand(p.parts, here, own, ctx);
+    expand(p.parts, compose(here, F, [0, 0, 0]), own, ctx);
+    return closed;
+  }
+  if (t === 'repeat') {
+    const n = Math.max(1, Math.min(200, p.count | 0)), off = v3(p.offset, [0, 0, 0]), R = euler(v3(p.turn, [0, 0, 0]));
+    const kids = p.parts || (p.part ? [p.part] : []);
+    let Rk = I3;
+    for (let k = 0; k < n; k++) { expand(kids, compose(here, Rk, [off[0] * k, off[1] * k, off[2] * k]), own, ctx); Rk = mm(R, Rk); }
+    return closed;
+  }
+  if (t === 'stack' || t === 'grid') { layout(p, here, own, ctx); return closed; }
+  if (t === 'note') {
+    const s = Math.cbrt(Math.abs(det3(here.M))), size = (typeof p.size === 'number' ? p.size : 0.08) * s;
+    const lines = String(p.text || '').split('\n'), width = (typeof p.width === 'number' ? p.width : 0) * s;
+    const w = width || size * 0.56 * Math.max(...lines.map(l => l.length)), h = size * 1.35 * lines.length;
+    const lo = [here.at[0] - w / 2, here.at[1] - h / 2, here.at[2]], hi = [here.at[0] + w / 2, here.at[1] + h / 2, here.at[2]];
+    if (p.align === 'left') { lo[0] += w / 2; hi[0] += w / 2; }
+    ctx.notes.push({ text: String(p.text || ''), p: here.at, size, width, align: p.align === 'left' ? 'left' : 'center',
+                     tone: own.tone || 0, lit: p.highlight === true || (p.id != null && ctx.stop && ctx.stop.highlight.has(String(p.id))) ? 1 : 0, focus: own.focus, lo, hi, weight: p.weight === 'bold' ? 1 : 0 });
+    return closed;
+  }
+  if (t === 'link') { ctx.links.push({ p, own }); return closed; }
+  const geo = shapeOf(p), pid = ++ctx.pid;
+  // what a click on this part names: its own label or id, the nearest labelled group, a model's own parts
+  ctx.pinfo[pid] = { id: p.id != null ? String(p.id) : null, label: p.label || (own.lid != null ? ctx.labels[own.lid] : null),
+                     type: t, parts: geo && geo[0] && geo[0].parts || null, ids: own.ids || [] };
+  const list = geo ? geo.map(g => ({ g, M: I3, at: [0, 0, 0], t0: 0, t1: 0 })) : pathParts(p);
+  // a path's look (stroke or solid) is decided for the whole path, by its shaft's radius
+  const lr = geo ? 0 : t === 'arrow' ? list[0].r1 : Math.max(...list.map(q => Math.max(q.r1, q.r2)));
+  for (const q of list) {
+    const W = compose(here, q.M, q.at), Minv = inv3(W.M), sA = Math.cbrt(Math.abs(det3(W.M)));
+    const x = { g: q.g, M: W.M, Minv, Nm: T3(Minv), at: W.at, tone: own.tone || 0, lid: own.lid, pid, t0: q.t0, t1: q.t1,
+                anim: own.anim, lit: own.hi ? 1 : 0, path: !!q.path, style: own.style, scaleA: sA * sA, focus: own.focus, quiet: own.quiet };
+    if (q.path) {
+      const h = mul(W.M, [0, q.len / 2, 0]), rr = Math.max(q.r1, q.r2) * sA;
+      x.a = sub(W.at, h); x.b = add(W.at, h); x.ra = q.r1 * sA; x.rb = q.r2 * sA; x.lr = lr * sA;
+      x.lo = [0, 1, 2].map(i => Math.min(x.a[i], x.b[i]) - rr); x.hi = [0, 1, 2].map(i => Math.max(x.a[i], x.b[i]) + rr);
+    } else {
+      const r = rng(presampleSeed++); x.lo = [1e9, 1e9, 1e9]; x.hi = [-1e9, -1e9, -1e9];
+      for (let k = 0; k < 48; k++) {
+        const s = q.g.sample(r)[0], w = mul(W.M, s);
+        for (let a = 0; a < 3; a++) { const v = w[a] + W.at[a]; x.lo[a] = Math.min(x.lo[a], v); x.hi[a] = Math.max(x.hi[a], v); }
+      }
+    }
+    ctx.out.push(x);
+  }
+  return closed;
+}
+// stack: children in a row (x), a column going down (y) or a line going back (z); grid: rows of `cols`
+function layout(p, here, own, ctx) {
+  const kids = p.parts || [], n = kids.length; if (!n) return;
+  const bs = kids.map(q => nodeBox(q, IDENT));
+  const sz = b => [0, 1, 2].map(a => b.hi[a] - b.lo[a]), ctr = b => [0, 1, 2].map(a => (b.hi[a] + b.lo[a]) / 2);
+  const gp = Array.isArray(p.gap) ? p.gap : [p.gap ?? 0.1, p.gap ?? 0.1];
+  const align = p.align || 'center', place = [];
+  if (p.type === 'stack') {
+    const ax = { x: 0, y: 1, z: 2 }[p.axis || 'y'] ?? 1, sign = ax === 0 ? 1 : -1, sizes = bs.map(sz);
+    const maxS = [0, 1, 2].map(a => Math.max(...sizes.map(s => s[a])));
+    let pos = -(sizes.reduce((t, s) => t + s[ax], 0) + gp[0] * (n - 1)) / 2;
+    sizes.forEach((s, i) => {
+      const at = [0, 0, 0]; at[ax] = sign * (pos + s[ax] / 2); pos += s[ax] + gp[0];
+      for (const a of [0, 1, 2]) if (a !== ax && align !== 'center') {
+        const lead = a === 0 ? -1 : 1, k = align === 'start' ? lead : -lead; // start = left / top
+        at[a] = k * (maxS[a] - s[a]) / 2;
+      }
+      place.push(at);
+    });
+  } else {
+    const cols = Math.max(1, (p.cols | 0) || Math.ceil(Math.sqrt(n))), rows = Math.ceil(n / cols), sizes = bs.map(sz);
+    const cw = Array(cols).fill(0), rh = Array(rows).fill(0);
+    sizes.forEach((s, i) => { cw[i % cols] = Math.max(cw[i % cols], s[0]); rh[(i / cols) | 0] = Math.max(rh[(i / cols) | 0], s[1]); });
+    const W = cw.reduce((a, b) => a + b, 0) + gp[0] * (cols - 1), H = rh.reduce((a, b) => a + b, 0) + gp[1] * (rows - 1);
+    sizes.forEach((s, i) => {
+      const c = i % cols, r = (i / cols) | 0;
+      let x = -W / 2 + cw.slice(0, c).reduce((a, b) => a + b, 0) + gp[0] * c + cw[c] / 2;
+      let y = H / 2 - rh.slice(0, r).reduce((a, b) => a + b, 0) - gp[1] * r - rh[r] / 2;
+      if (align === 'start') { x += (s[0] - cw[c]) / 2; y -= (s[1] - rh[r]) / 2; }
+      place.push([x, y, 0]);
+    });
+  }
+  kids.forEach((q, i) => { const c = ctr(bs[i]); expand([q], compose(here, I3, sub(place[i], c)), own, ctx); });
+}
+// a link: an arrow (or plain tube) from one id's box to another's, edge to edge
+function idBox(ctx, id) {
+  const r = ctx.ids.get(String(id)); if (!r) return null;
+  return unite(ctx.out.slice(r.from, r.to), ctx.notes.slice(r.nfrom, r.nto));
+}
+function resolveLinks(ctx) {
+  const links = ctx.links; ctx.links = [];
+  for (const { p, own } of links) {
+    const A = idBox(ctx, p.from), B = idBox(ctx, p.to); if (!A || !B) continue;
+    const ca = scl(add(A.lo, A.hi), 0.5), cb = scl(add(B.lo, B.hi), 0.5), d = sub(cb, ca), L = Math.hypot(...d); if (L < 1e-9) continue;
+    const u = scl(d, 1 / L);
+    const exitT = b => { let t = 1e9; for (let a = 0; a < 3; a++) if (Math.abs(u[a]) > 1e-9) t = Math.min(t, (b.hi[a] - b.lo[a]) / 2 / Math.abs(u[a])); return t; };
+    const da = dist3(A.lo, A.hi), db = dist3(B.lo, B.hi);
+    const rad = typeof p.radius === 'number' ? p.radius : Math.max(1e-4, 0.012 * Math.min(da || db, db || da));
+    let pa = add(ca, scl(u, exitT(A) + rad * 2)), pb = sub(cb, scl(u, exitT(B) + rad * 2));
+    if ((pb[0] - pa[0]) * u[0] + (pb[1] - pa[1]) * u[1] + (pb[2] - pa[2]) * u[2] <= rad * 4) { pa = ca; pb = cb; }
+    const head = p.head !== false, bend = typeof p.bend === 'number' ? p.bend : 0, parts = [];
+    if (!bend) parts.push({ type: head ? 'arrow' : 'tube', from: pa, to: pb, radius: rad });
+    else {
+      let nrm = cross(u, [0, 0, 1]); if (Math.hypot(...nrm) < 0.1) nrm = cross(u, [0, 1, 0]); nrm = norm(nrm);
+      const span = dist3(pa, pb), mid = add(scl(add(pa, pb), 0.5), scl(nrm, bend * span));
+      const bez = t => add(add(scl(pa, (1 - t) * (1 - t)), scl(mid, 2 * t * (1 - t))), scl(pb, t * t));
+      const path = []; for (let i = 0; i <= 20; i++) path.push(bez(i / 20));
+      if (head) {
+        const tg = norm(sub(pb, bez(0.95))), hl = Math.min(rad * 7, span * 0.3), back = sub(pb, scl(tg, hl));
+        path[path.length - 1] = back;
+        parts.push({ type: 'curve', path, radius: rad, smooth: false });
+        parts.push({ type: 'arrow', from: sub(back, scl(tg, hl * 1.5)), to: pb, radius: rad });
+      } else parts.push({ type: 'curve', path, radius: rad, smooth: false });
+    }
+    expand([{ type: 'group', parts }], IDENT, own, ctx);
+  }
+}
+function prepStop(s) {
+  s = s || {};
+  const list = v => (v == null ? [] : Array.isArray(v) ? v.map(String) : [String(v)]);
+  const focus = s.focus && typeof s.focus === 'object' && !Array.isArray(s.focus) ? null : list(s.focus);
+  return { focus: new Set(focus || []), region: focus ? null : s.focus, highlight: new Set(list(s.highlight)), hide: new Set(list(s.hide)),
+           animate: s.animate && typeof s.animate === 'object' ? s.animate : {}, dim: s.dim !== false };
+}
+// the camera that frames these boxes from this angle, filling the view without cropping
+function projFit(items, R) {
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const x of items) for (let k = 0; k < 8; k++) {
+    const q = mul(R, [k & 1 ? x.hi[0] : x.lo[0], k & 2 ? x.hi[1] : x.lo[1], k & 4 ? x.hi[2] : x.lo[2]]);
+    for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], q[a]); hi[a] = Math.max(hi[a], q[a]); }
+  }
+  let qc = scl(add(lo, hi), 0.5);
+  const hw = (hi[0] - lo[0]) / 2, hh = (hi[1] - lo[1]) / 2, hz = (hi[2] - lo[2]) / 2;
+  let r = Math.max(hw * FF / (D * 0.45 * ASPECT), hh * FF / (D * 0.4), hz / 2.6, 1e-6);
+  // near things look bigger: refine with the real perspective until the boxes just fit
+  const corners = [];
+  for (const x of items) for (let k = 0; k < 8; k++) corners.push(mul(R, [k & 1 ? x.hi[0] : x.lo[0], k & 2 ? x.hi[1] : x.lo[1], k & 4 ? x.hi[2] : x.lo[2]]));
+  const extent = () => {
+    let x0 = 1e9, x1 = -1e9, y0 = 1e9, y1 = -1e9;
+    for (const q of corners) {
+      const d = Math.max(0.35, D - (q[2] - qc[2]) / r), s = FF / d;
+      const sx = (q[0] - qc[0]) / r * s, sy = (q[1] - qc[1]) / r * s;
+      x0 = Math.min(x0, sx); x1 = Math.max(x1, sx); y0 = Math.min(y0, sy); y1 = Math.max(y1, sy);
+    }
+    return [x0, x1, y0, y1];
+  };
+  for (let it = 0; it < 14; it++) { // center, then size, until both settle (a deep scene needs several)
+    let [x0, x1, y0, y1] = extent();
+    qc = [qc[0] + (x0 + x1) / 2 * r * D / FF, qc[1] + (y0 + y1) / 2 * r * D / FF, qc[2]];
+    [x0, x1, y0, y1] = extent();
+    const f = Math.max((x1 - x0) / 2 / (0.45 * ASPECT), (y1 - y0) / 2 / 0.4);
+    r *= Math.max(0.7, Math.min(1.6, f));
+    if (Math.abs(f - 1) < 0.01 && Math.abs(x0 + x1) < 0.01 && Math.abs(y0 + y1) < 0.01) break;
+  }
+  { const [x0, x1, y0, y1] = extent(); qc = [qc[0] + (x0 + x1) / 2 * r * D / FF, qc[1] + (y0 + y1) / 2 * r * D / FF, qc[2]]; }
+  return { c: mul(T3(R), qc), r: Math.max(r, hz / 2.6, 1e-6) };
+}
+function fitCam(items, view, spin) {
+  if (!spin) return projFit(items, rotOf(view[0], view[1]));
+  // a swaying object must fit at every angle it sways through
+  const fs = [-0.55, 0, 0.55].map(d => projFit(items, rotOf(view[0] + d, view[1])));
+  return { c: fs[1].c, r: Math.max(...fs.map(f => f.r)) * 1.38 };
+}
+function focusItems(ctx, st) {
+  if (st.region && Array.isArray(st.region.at)) {
+    const c = v3(st.region.at, [0, 0, 0]), r = typeof st.region.radius === 'number' ? st.region.radius : 1;
+    return [{ lo: sub(c, [r, r, r * 0.15]), hi: add(c, [r, r, r * 0.15]) }]; // an area, seen face-on
+  }
+  if (st.focus.size) {
+    const items = [];
+    for (const id of st.focus) { const r = ctx.ids.get(id); if (r) items.push(...ctx.out.slice(r.from, r.to), ...ctx.notes.slice(r.nfrom, r.nto)); }
+    if (items.length) return items;
+  }
+  return ctx.out.concat(ctx.notes);
+}
+
+// ---------- one view's point cloud, built for one camera ----------
+// the angle a thing should be seen from, from its shape (front = +z): a sheet face-on, something lying
+// flat from above, a solid thing from three-quarters in front
+function autoView(items, fallback) {
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (const x of items) for (let a = 0; a < 3; a++) { lo[a] = Math.min(lo[a], x.lo[a]); hi[a] = Math.max(hi[a], x.hi[a]); }
+  const w = hi[0] - lo[0], h = hi[1] - lo[1], d = hi[2] - lo[2], big = Math.max(w, h, d);
+  if (!(big > 0)) return fallback;
+  if (d < 0.25 * Math.max(w, h) && h > 0.35 * w) return [-0.1, 0.1];      // a sheet standing up: face-on
+  if (h < 0.3 * Math.max(w, d)) return [-0.3, 0.72];                       // lying flat: from above
+  if (w > 2.2 * Math.max(h, d)) return [-0.2, 0.32];                       // a long row: nearly front, a little above
+  return [-0.4, 0.3];                                                      // a solid thing: three-quarter front
+}
+function build(job) {
+  const world = WORLDS[job.w], st = prepStop(job.stop);
+  let view = job.view;
+  if (job.auto && !job.cam) { const c0 = newCtx(null, st); presampleSeed = 1; expand(world, IDENT, INH0, c0); view = autoView(focusItems(c0, st), view); }
+  const run = c => {
+    const ctx = newCtx(c && Object.assign({ R: rotOf(view[0], view[1]) }, c), st);
+    presampleSeed = 1; expand(world, IDENT, INH0, ctx); resolveLinks(ctx); return ctx;
+  };
+  let cam = job.cam, ctx;
+  if (cam) ctx = run(cam);
+  else { // fit the focus; opening detail can change what the focus is, so fit again until it settles
+    let c = null, same = false;
+    for (let it = 0; it < 6 && !same; it++) {
+      ctx = run(c);
+      const f = fitCam(focusItems(ctx, st), view, job.spin);
+      same = !!c && Math.abs(Math.log(f.r / c.r)) < 0.04 && dist3(f.c, c.c) < 0.04 * f.r;
+      if (!same) c = f;
+    }
+    if (!same) ctx = run(c);
+    cam = c;
+  }
+  const out = emit(ctx, { c: cam.c, r: cam.r }, rotOf(view[0], view[1]), st, job);
+  out.autoView = view; return out;
+}
+
+function emit(ctx, cam, R, st, job) {
+  const all = ctx.out, notesIn = ctx.notes;
+  if (!all.length && !notesIn.length) throw new Error('this view has no shapes');
+  const dimOn = st.dim && st.focus.size > 0 && all.some(x => x.focus) && !all.every(x => x.focus);
+  const toCam = p => mul(R, scl(sub(p, cam.c), 1 / cam.r));
+  const margin = job.spin ? 1.6 : 1.12, SX = ASPECT * 0.5 * margin, SY = 0.5 * margin;
+  // which parts this camera sees, and how many grid cells a unit of each spans on screen
+  const vis = [];
+  for (const x of all) {
+    const c = scl(add(x.lo, x.hi), 0.5), rad = dist3(x.lo, x.hi) / 2, q = toCam(c), depth = D - q[2], rr = rad / cam.r;
+    if (depth + rr < 0.3) continue;
+    const s = FF / Math.max(depth, 0.3), pr = rr * s;
+    if (Math.abs(q[0] * s) - pr > SX || Math.abs(q[1] * s) - pr > SY) continue;
+    x.cpu = s * G / cam.r; x.diag = 2 * rad;
+    // how much of its box is on screen (corners projected, the rectangle clipped to the view)
+    let a0 = 1e9, a1 = -1e9, b0 = 1e9, b1 = -1e9;
+    for (let k = 0; k < 8; k++) {
+      const qq = toCam([k & 1 ? x.hi[0] : x.lo[0], k & 2 ? x.hi[1] : x.lo[1], k & 4 ? x.hi[2] : x.lo[2]]), ss = FF / Math.max(D - qq[2], 0.3);
+      a0 = Math.min(a0, qq[0] * ss); a1 = Math.max(a1, qq[0] * ss); b0 = Math.min(b0, qq[1] * ss); b1 = Math.max(b1, qq[1] * ss);
+    }
+    const ar = Math.max(1e-9, (a1 - a0) * (b1 - b0));
+    x.onScreen = Math.max(0.02, Math.max(0, Math.min(a1, SX) - Math.max(a0, -SX)) * Math.max(0, Math.min(b1, SY) - Math.max(b0, -SY)) / ar);
+    // a thin path is a stroke; so is any path outside the focus, so context stays light
+    x.line = x.path && (x.style === 'line' || (x.style !== 'solid' && (x.lr * x.cpu < 1.6 || (st.focus.size && !x.focus)))) ? 1 : 0;
+    x.cdim = dimOn && !x.focus ? 1 : 0; x.dim = x.cdim || x.quiet ? 1 : 0; // quiet: background, in every view
+    vis.push(x);
+  }
+  // a cutaway: whatever stands wholly between the camera and the focus is left out
+  const fx = vis.filter(x => x.focus);
+  if (st.focus.size && fx.length && fx.length < vis.length) {
+    const depthOf = x => { const c = scl(add(x.lo, x.hi), 0.5); return [D - toCam(c)[2], dist3(x.lo, x.hi) / 2 / cam.r]; };
+    let near = 1e9; for (const x of fx) { const [d, rr] = depthOf(x); near = Math.min(near, d - rr); }
+    for (let i = vis.length - 1; i >= 0; i--) { const x = vis[i]; if (x.focus) continue; const [d, rr] = depthOf(x); if (d + rr < near - 0.02) vis.splice(i, 1); }
+    st.near = near;
+  }
+  const solids = vis.filter(x => !x.line);
+  // a face with another solid part just in front of it can never be seen: skip it. A coarse grid
+  // over the solids' boxes keeps this fast with thousands of parts.
+  const occ = solids.filter(x => x.g.inside);
+  const glo = [1e9, 1e9, 1e9], ghi = [-1e9, -1e9, -1e9];
+  for (const o of occ) for (let a = 0; a < 3; a++) { glo[a] = Math.min(glo[a], o.lo[a]); ghi[a] = Math.max(ghi[a], o.hi[a]); }
+  const GN = Math.max(1, Math.min(40, Math.round(Math.cbrt(occ.length) * 2))), cells = new Map();
+  const gsz = [0, 1, 2].map(a => Math.max(1e-9, (ghi[a] - glo[a]) / GN));
+  const cellOf = (v, a) => Math.max(0, Math.min(GN - 1, Math.floor((v - glo[a]) / gsz[a])));
+  const gapOf = x => Math.min(0.012 * cam.r, 0.05 * x.diag), PAD = 0.02 * cam.r;
+  for (const o of occ) {
+    const pad = PAD, i0 = [0, 1, 2].map(a => cellOf(o.lo[a] - pad, a)), i1 = [0, 1, 2].map(a => cellOf(o.hi[a] + pad, a));
+    o.pad = pad;
+    for (let i = i0[0]; i <= i1[0]; i++) for (let j = i0[1]; j <= i1[1]; j++) for (let k = i0[2]; k <= i1[2]; k++) {
+      const key = (i * GN + j) * GN + k; let l = cells.get(key); if (!l) cells.set(key, (l = [])); l.push(o);
+    }
+  }
+  const buried = (p, self) => {
+    for (let a = 0; a < 3; a++) if (p[a] < glo[a] - PAD || p[a] > ghi[a] + PAD) return false;
+    const l = cells.get((cellOf(p[0], 0) * GN + cellOf(p[1], 1)) * GN + cellOf(p[2], 2)); if (!l) return false;
+    for (const o of l) {
+      if (o === self) continue;
+      if (p[0] < o.lo[0] - o.pad || p[0] > o.hi[0] + o.pad || p[1] < o.lo[1] - o.pad || p[1] > o.hi[1] + o.pad || p[2] < o.lo[2] - o.pad || p[2] > o.hi[2] + o.pad) continue;
+      if (o.g.inside(mul(o.Minv, sub(p, o.at)))) return true;
+    }
+    return false;
+  };
+  // a face flush with a smaller part's face (a card laid on a panel) is covered by it: just behind
+  // the point, inside the smaller part
+  const under = (p, n, self, gap) => {
+    const q = [p[0] - n[0] * gap * 0.3, p[1] - n[1] * gap * 0.3, p[2] - n[2] * gap * 0.3];
+    for (let a = 0; a < 3; a++) if (q[a] < glo[a] - PAD || q[a] > ghi[a] + PAD) return false;
+    const l = cells.get((cellOf(q[0], 0) * GN + cellOf(q[1], 1)) * GN + cellOf(q[2], 2)); if (!l) return false;
+    for (const o of l) if (o !== self && o.diag < self.diag && q[0] >= o.lo[0] && q[0] <= o.hi[0] && q[1] >= o.lo[1] && q[1] <= o.hi[1] && q[2] >= o.lo[2] && q[2] <= o.hi[2] && o.g.inside(mul(o.Minv, sub(q, o.at)))) return true;
+    return false;
+  };
+  // what each part needs to read on screen: a line for its length, coverage for its visible area
+    const line = solids.map(x => 1.3 * x.cpu * x.diag);
+  const fillN = solids.map(x => (x.g.area * x.scaleA / 2) * x.cpu * x.cpu / (job.spin ? 3.2 : 1.8) * x.onScreen * (x.dim ? 0.4 : 1));
+  const offScreen = p => { const q = toCam(p), d = D - q[2]; if (d < 0.3) return true; const ss = FF / d; return Math.abs(q[0] * ss) > SX || Math.abs(q[1] * ss) > SY; };
+  const base = solids.map((x, i) => Math.min(line[i], fillN[i])), rest = solids.map((x, i) => Math.max(0, fillN[i] - base[i]));
+  const sb = base.reduce((a, b) => a + b, 0), sr = rest.reduce((a, b) => a + b, 0);
+  const kb = Math.min(1, N / Math.max(1, sb)), kr = sb >= N ? 0 : Math.min(1, (N - sb) / Math.max(1, sr));
+  const want = solids.map((x, i) => Math.max(x.diag * x.cpu < 1.5 ? 1 : 3, Math.round(base[i] * kb + rest[i] * kr)));
+  const r = rng(1013 + (job.seed || 0) * 7919), pts = [];
+  const place = (x, lp, ln) => { const p = mul(x.M, lp); return [[p[0] + x.at[0], p[1] + x.at[1], p[2] + x.at[2]], norm(mul(x.Nm, ln))]; };
+  // a view that holds still never shows a face turned away: spend nothing there
+  const eye = add(cam.c, scl(mul(T3(R), [0, 0, D]), cam.r)), still = !job.spin;
+  const facing = (x, p, n) => !still || x.g.two || (eye[0] - p[0]) * n[0] + (eye[1] - p[1]) * n[1] + (eye[2] - p[2]) * n[2] > 0;
+  const emitOne = x => {
+    const gap = gapOf(x);
+    for (let t = 0; t < 12; t++) {
+      const s = x.g.sample(r), [p, n] = place(x, s[0], s[1]);
+      if (facing(x, p, n) && (x.onScreen > 0.98 || !offScreen(p)) && !buried(p, x) && !under(p, n, x, gap) && !buried([p[0] + n[0] * gap, p[1] + n[1] * gap, p[2] + n[2] * gap], x)) {
+        const h = x.g.h, tt = h ? x.t0 + (s[0][1] / h + 0.5) * (x.t1 - x.t0) : 0;
+        pts.push({ p, n, x, t: tt, tone: x.tone + (s[2] || 0), c: s[3] || null, sp: s[4] == null ? -1 : s[4] }); return true;
+      }
+    }
+    return false;
+  };
+  solids.forEach((x, i) => { for (let j = 0; j < want[i]; j++) emitOne(x); });
+  if (solids.length) { // top up to the budget, steering tries toward parts whose points land
+    const ok = solids.map(() => 1), tried = solids.map(() => 1);
+    let cw, tot;
+    const weigh = () => { cw = cumsum(fillN.map((v, i) => Math.max(v, 1e-9) * ok[i] / tried[i])); tot = cw[cw.length - 1]; };
+    weigh();
+    for (let guard = 0; pts.length < N && guard < N * 3; guard++) {
+      const i = pick(cw, r() * tot); tried[i]++; if (emitOne(solids[i])) ok[i]++;
+      if ((guard & 4095) === 4095) weigh();
+    }
+  }
+  for (let i = pts.length - 1; i > 0; i--) { const j = (r() * (i + 1)) | 0; [pts[i], pts[j]] = [pts[j], pts[i]]; }
+  const real = pts.length;
+  for (let i = 0; real && pts.length < N; i++) pts.push(pts[i]);
+  pts.length = Math.min(pts.length, N);
+
+  const loc = p => scl(sub(p, cam.c), 1 / cam.r);
+  const P = new Float32Array(N * 3), NN = new Float32Array(N * 3), tone = new Float32Array(N), flags = new Uint8Array(N), pid = new Uint16Array(N);
+  // animation per point: kind (0 none, 1 glow, 2 pulse, 3 flow), where along its path, period, delay, strength (- = reverse)
+  const ak = new Uint8Array(N), apos = new Float32Array(N), aper = new Float32Array(N), adel = new Float32Array(N), astr = new Float32Array(N);
+  const COL = new Float32Array(N).fill(-1), SUB = new Int32Array(N).fill(-1); // packed rgb (or -1), and a model's own part
+  let minY = 1e9;
+  for (let i = 0; i < N; i++) {
+    const q = pts[i];
+    if (!q) { flags[i] = 16; continue; } // an unused slot
+    // a face lying flush on a bigger one would flicker against it: the smaller part wins, by a hair
+    const nud = 0.003 / (1 + q.x.diag / cam.r), f = loc(q.p); f[0] += q.n[0] * nud; f[1] += q.n[1] * nud; f[2] += q.n[2] * nud;
+    minY = Math.min(minY, f[1]);
+    P.set(f, i * 3); NN.set(q.n, i * 3); tone[i] = q.tone; pid[i] = q.x.pid & 0xffff;
+    if (q.c) COL[i] = Math.round(Math.min(1, q.c[0]) * 255) * 65536 + Math.round(Math.min(1, q.c[1]) * 255) * 256 + Math.round(Math.min(1, q.c[2]) * 255);
+    SUB[i] = q.sp;
+    flags[i] = (q.x.g.two ? 1 : 0) | (q.x.lit << 2) | (q.x.dim << 3); const a = q.x.anim; // two-sided, highlight, dim
+    if (a) { ak[i] = a.kind; apos[i] = q.t; aper[i] = a.period; adel[i] = a.delay; astr[i] = a.reverse ? -a.strength : a.strength; }
+  }
+  // strokes: thin paths, drawn crisp at the screen's own resolution
+  const lines = vis.filter(x => x.line), SG = new Float32Array(lines.length * 16);
+  // how much of the screen the strokes cover: a dense bundle is drawn fainter, so it reads as a tone
+  let ink = 0; for (const x of lines) ink += dist3(x.a, x.b) * x.cpu * Math.max(0.35, 2 * x.lr * x.cpu);
+  const density = Math.max(0.22, Math.min(1, Math.pow(0.16 / Math.max(1e-9, ink / (ASPECT * G * G)), 0.75)));
+  lines.forEach((x, i) => {
+    const a = loc(x.a), b = loc(x.b), an = x.anim, o = i * 16;
+    SG.set([a[0], a[1], a[2], x.t0, b[0], b[1], b[2], x.t1, x.ra / cam.r, x.rb / cam.r, x.tone, x.lit + 2 * x.dim,
+            an ? an.kind : 0, an ? an.period : 1, an ? an.delay : 0, an ? (an.reverse ? -an.strength : an.strength) : 0], o);
+  });
+  // labels: on top of what they name, ranked by how big that is on screen
+  const lb = ctx.labels.map(() => null);
+  for (const x of vis) {
+    if (x.lid < 0) continue;
+    let t = lb[x.lid]; if (!t) t = lb[x.lid] = { lo: x.lo.slice(), hi: x.hi.slice(), focus: false, dim: 1, cpu: x.cpu };
+    for (let a = 0; a < 3; a++) { t.lo[a] = Math.min(t.lo[a], x.lo[a]); t.hi[a] = Math.max(t.hi[a], x.hi[a]); }
+    if (x.focus) t.focus = true; if (!x.cdim) t.dim = 0; if (!x.quiet) t.loud = 1;
+  }
+  const labels = [];
+  lb.forEach((t, i) => {
+    if (!t) return;
+    const c = scl(add(t.lo, t.hi), 0.5);
+    labels.push({ text: ctx.labels[i], id: ctx.labelIds[i], p: loc([c[0], t.hi[1], c[2]]), size: dist3(t.lo, t.hi) * t.cpu / G, focus: t.focus, dim: t.dim, quiet: !t.loud });
+  });
+  const notes = [];
+  for (const n of notesIn) {
+    const q = toCam(n.p), depth = D - q[2]; if (depth < 0.3 || (st.near && !n.focus && depth < st.near - 0.05)) continue;
+    const s = FF / depth, w = (n.width || dist3(n.lo, n.hi)) / cam.r * s;
+    if (Math.abs(q[0] * s) - w > SX || Math.abs(q[1] * s) > SY + 0.2) continue;
+    notes.push({ text: n.text, p: loc(n.p), size: n.size / cam.r, width: n.width / cam.r, align: n.align, tone: n.tone, lit: n.lit,
+                 dim: dimOn && !n.focus ? 1 : 0, weight: n.weight });
+  }
+  return { pinfo: ctx.pinfo, P, NN, tone, flags, pid, ak, apos, aper, adel, astr, COL, SUB, SG, ns: lines.length, density, labels, notes, cam, minY: minY === 1e9 ? 0 : minY, real };
+}
+
+// ---------- the builder: in a worker, or (if a worker cannot start) on the page ----------
+function setup(m) { N = m.N; G = m.G; ASPECT = m.ASPECT; ASSETS = m.assets || {}; IMAGES = m.images || {}; WORLDS = m.worlds; }
+async function decodeImages(assets) { // on the page: an <img> decodes every format, SVG included
+  const out = {};
+  for (const [k, a] of Object.entries(assets || {})) if (a.kind === 'image') {
+    const im = new Image(); im.src = a.data; await im.decode();
+    const w = im.naturalWidth || 512, h = im.naturalHeight || 512, s = Math.min(1, 512 / Math.max(w, h));
+    const c = new OffscreenCanvas(Math.max(2, Math.round(w * s)), Math.max(2, Math.round(h * s)));
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    out[k] = c.transferToImageBitmap();
+  }
+  return out;
+}
+const SENDS = c => [c.P, c.NN, c.tone, c.flags, c.pid, c.ak, c.apos, c.aper, c.adel, c.astr, c.COL, c.SUB, c.SG].map(t => t.buffer);
+function makeRunner(post) {
+  let queue = [], busy = false;
+  const pump = async () => {
+    if (busy) return; busy = true;
+    while (queue.length) {
+      const j = queue.shift();
+      try { const c = build(j); post({ type: 'cloud', key: j.key, c }, SENDS(c)); }
+      catch (err) { post({ type: 'error', key: j.key, message: String(err && err.message || err) }); }
+      await new Promise(r => setTimeout(r, 0)); // let a new request reorder the queue
+    }
+    busy = false;
+  };
+  return m => {
+    if (m.type === 'init') {
+      try { setup(m); } catch (err) { post({ type: 'error', key: null, message: String(err && err.message || err) }); return; }
+      queue = m.jobs.slice(); pump();
+    } else if (m.type === 'want') { const j = queue.find(q => q.key === m.key); if (j) { queue = [j, ...queue.filter(q => q !== j)]; pump(); } }
+    else if (m.type === 'job') { queue = [m.job, ...queue.filter(q => !(m.replace && q.key.startsWith(m.replace)))]; pump(); }
+    else if (m.type === 'aspect') { ASPECT = m.ASPECT; const first = m.jobs.find(q => q.key === m.first); queue = first ? [first, ...m.jobs.filter(q => q !== first)] : m.jobs.slice(); pump(); }
+  };
+}
+if (typeof window === 'undefined') { const handle = makeRunner((m, t) => postMessage(m, t)); self.onmessage = ev => handle(ev.data); }
+</script>
+<script>
+const S = /*__SCENE__*/null;
+const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DETAIL = (S && S.detail) || 'normal', ULTRA = DETAIL === 'ultra', MAX = ULTRA || DETAIL === 'max', HIGH = MAX || DETAIL === 'high';
+const WORLD = !!(S && Array.isArray(S.world));     // one world the camera travels, or one object per step
+const N = Math.round((ULTRA ? 420000 : MAX ? 120000 : HIGH ? 80000 : 40000) * (WORLD ? 1.5 : 1)); // points per view
+const G = ULTRA ? 760 : MAX ? 360 : HIGH ? 300 : 220; // the finest dot grid (rows), used to plan points
+if (WORLD) document.body.classList.add('world'); else if (HIGH) document.body.classList.add('wide');
+let ASPECT = (() => { // the canvas's own shape, so labels and notes land where the dots do
+  const r = document.getElementById('viz').getBoundingClientRect();
+  return r.width > 50 && r.height > 50 ? Math.max(0.5, Math.min(2.6, r.width / r.height)) : WORLD ? 1.4 : 1;
+})();
+// the pane: the share of the canvas's width the world is framed into, from the left (the rest is room
+// for the talk beside it). A skin sets window.SEE_PANE() -> 0..1; 1 = the whole canvas.
+// It may also return {w, h}: h is the share of the height, from the top (words below the world).
+const paneOf = () => { try { const v = typeof window.SEE_PANE === 'function' ? window.SEE_PANE() : 1, c = x => Math.max(0.4, Math.min(1, +x || 1));
+  if (typeof v === 'object' && v) { const w = c(v.w); return { w, h: c(v.h), x: Math.max(0, Math.min(1 - w, +v.x || 0)) }; }
+  return { w: c(v), h: 1, x: 0 }; } catch { return { w: 1, h: 1, x: 0 }; } };
+const setPane = pn => { PN = pn; PANE = pn.w / pn.h; CXF = (pn.x || 0) + pn.w / 2; FFP = FF * pn.h; CYP = CYF * pn.h; };
+let GX = G, GY = G;                                 // the grid drawn: coarser on a low-density screen
+const DOT = 3;                                      // a point covers DOT×DOT cells
+const DUR = reduce ? 0.01 : 1.3;                    // the morph
+const D = 3.5, FF = 1.45, CYF = 0.47;               // the camera: distance, focal length (in rows), center row
+let PN = paneOf(), PANE = PN.w / PN.h, CXF = (PN.x || 0) + PN.w / 2, FFP = FF * PN.h, CYP = CYF * PN.h; // PANE: what the fit's aspect is scaled by
+
+const TAU = Math.PI * 2;
+const norm3 = v => { const l = Math.hypot(v[0], v[1], v[2]) || 1; return [v[0] / l, v[1] / l, v[2] / l]; };
+const sub3 = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]], add3 = (a, b) => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+const scl3 = (a, k) => [a[0] * k, a[1] * k, a[2] * k], dist3 = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]);
+function rngM(seed) {
+  return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; };
+}
+
+// ---------- the scene: worlds, and the stops that visit them ----------
+// A world scene has one `world` and `stops` that move the camera through it. A stop (or an old
+// `steps` entry) that brings its own `shape` is a world of its own, which the points morph into.
+const worlds = [], stops = [];
+if (S) {
+  if (WORLD) worlds.push(S.world);
+  for (const s of S.stops || S.steps || []) {
+    let w = 0, object = !WORLD;
+    if (Array.isArray(s.shape)) { worlds.push(s.shape); w = worlds.length - 1; object = true; }
+    stops.push(Object.assign({}, s, { w, object }));
+  }
+}
+const VIEWS = { 'three-quarter': [-0.5, 0.4], front: [0, 0.08], side: [-Math.PI / 2, 0.1], back: [Math.PI, 0.25], top: [-0.25, 1.25], below: [-0.5, -0.5] };
+const viewOf = s => { const v = s.view ?? (s.object ? undefined : S.view);
+  return v && typeof v === 'object' ? [-(v.yaw ?? 29) * Math.PI / 180, (v.pitch ?? 23) * Math.PI / 180] : VIEWS[v] || VIEWS['three-quarter']; };
+const jobOf = k => { const s = stops[k];
+  return { key: 's' + k, w: s.w, stop: { focus: s.focus, highlight: s.highlight, hide: s.hide, animate: s.animate, dim: s.dim },
+           cam: null, view: viewOf(s), auto: s.view == null && !s.object && s.focus != null, spin: s.object && s.spin !== false, seed: k }; };
+
+// ---------- the GPU renderer ----------
+// Pass 1 draws every point into a GX×GY buffer: normal, tone, part id, dim and accent flags, depth.
+// Pass 2 runs per screen pixel: it finds the pixel's cell, outlines silhouettes, depth steps and
+// part boundaries, shades in flat bands, and draws the cell as one round halftone dot whose size
+// is its darkness. Pass 3 draws thin paths as crisp strokes at the screen's own resolution,
+// hidden where a solid stands in front. Two layers share the passes, so one view can fade into
+// the next while the camera flies. The morph and every animation run on the GPU.
+const canvas = document.getElementById('c');
+const gl = canvas.getContext('webgl2', { antialias: false, alpha: true, premultipliedAlpha: true });
+// a hidden panel can lose the GPU: keep the page, and come back drawn
+canvas.addEventListener('webglcontextlost', e => e.preventDefault());
+canvas.addEventListener('webglcontextrestored', () => location.reload());
+document.addEventListener('visibilitychange', () => { if (!document.hidden && gl && gl.isContextLost()) location.reload(); });
+const ANIM_GLSL = `
+float animLit(vec4 an, float along, float t) { // kind, period, delay, strength (negative = reverse)
+  if (an.x < .5) return 0.;
+  float q0 = (t - an.z) / an.y, f = 0., st = an.w;
+  if (q0 >= 0.) {
+    if (an.x < 1.5) f = .5 - .5 * cos(6.2831853 * q0);
+    else if (an.x < 2.5) { float r = fract(q0); f = r < .3 ? sin(3.14159265 * r / .3) : 0.; }
+    else { float r = fract(q0 - (st < 0. ? 1. - along : along)); f = r < .22 ? sin(3.14159265 * r / .22) : 0.; }
+  }
+  return f * abs(st);
+}`;
+const VS1 = `#version 300 es
+precision highp float;
+layout(location=0) in vec4 aFrom;   // xyz, morph delay
+layout(location=1) in vec4 aFromN;  // xyz, tone it had
+layout(location=2) in vec4 aScat;   // xyz scatter
+layout(location=3) in vec4 aTo;     // xyz, tone
+layout(location=4) in vec4 aToN;    // xyz, flags: two-sided 1, highlight 4, dim 8, unused 16
+layout(location=5) in vec4 aAnim;   // kind (1 glow, 2 pulse, 3 flow), along, period, delay
+layout(location=6) in vec2 aMisc;   // strength (negative = reverse), part id
+layout(location=7) in float aCol;   // packed rgb, or -1 for none
+uniform float uT, uDur, uAnimT, uF, uD, uGX, uGY, uCX, uCY, uSize, uK, uAlpha;
+uniform vec3 uOff;
+uniform mat3 uR;
+out vec3 vN; out float vTone; flat out float vPid; out float vAcc; flat out float vDim; flat out float vFaint; flat out vec4 vCol;
+float ease(float e) { return e < .5 ? 4. * e * e * e : 1. - pow(-2. * e + 2., 3.) / 2.; }
+${ANIM_GLSL}
+void main() {
+  gl_Position = vec4(2., 2., 2., 1.); gl_PointSize = 1.;
+  float fl = aToN.w;
+  if (fl >= 16.) return;
+  if (fract(sin(float(gl_VertexID) * 12.9898) * 43758.5453) >= uAlpha) return; // a layer fading in or out
+  float e = ease(clamp((uT - aFrom.w) / uDur, 0., 1.));
+  float b = sin(3.14159265 * e) * 0.9;
+  vec3 p = (mix(aFrom.xyz, aTo.xyz, e) + aScat.xyz * b) * uK + uOff;
+  vec3 n = normalize(mix(aFromN.xyz, aToN.xyz, e) + vec3(1e-6));
+  float two = mod(fl, 2.), acc = mod(floor(fl / 4.), 2.), dim = mod(floor(fl / 8.), 2.);
+  vec3 q = uR * p, nv = uR * n;
+  vFaint = 0.;
+  if (b > 0.12) { if (mod(float(gl_VertexID), 5.) != 0.) return; vFaint = 1.; }   // in flight: faint dust
+  else if (nv.z < 0.1) { if (two < .5 || nv.z > -0.1) return; nv = -nv; }
+  float depth = uD - q.z;
+  if (depth < 0.3) return;
+  float px = uCX + q.x * uF / depth, py = uCY - q.y * uF / depth;
+  gl_Position = vec4(px / uGX * 2. - 1., 1. - py / uGY * 2., clamp((depth - .3) / 60., 0., 1.) * 2. - 1., 1.);
+  gl_PointSize = vFaint > .5 ? 1. : uSize;
+  float lit = acc;
+  if (e >= 1.) lit = max(lit, animLit(vec4(aAnim.x, aAnim.z, aAnim.w, aMisc.x), aAnim.y, uAnimT));
+  vN = nv; vTone = mix(aFromN.w, aTo.w, e); vPid = aMisc.y; vAcc = lit; vDim = dim;
+  vCol = aCol < 0. ? vec4(0.) : vec4(floor(aCol / 65536.) / 255., mod(floor(aCol / 256.), 256.) / 255., mod(aCol, 256.) / 255., 1.);
+}`;
+const FS1 = `#version 300 es
+precision highp float;
+in vec3 vN; in float vTone; flat in float vPid; in float vAcc; flat in float vDim; flat in float vFaint; flat in vec4 vCol;
+layout(location=0) out vec4 o0; layout(location=1) out vec4 o1; layout(location=2) out vec4 o2;
+void main() {
+  vec3 n = normalize(vN);
+  o0 = vec4(n.x * .5 + .5, n.y * .5 + .5, clamp(vTone / 3. + .5, 0., 1.), vDim);
+  o1 = vec4(mod(vPid, 256.) / 255., floor(vPid / 256.) / 255., clamp(vAcc, 0., 1.), vFaint);
+  o2 = vCol;
+}`;
+const VS2 = `#version 300 es
+void main() { vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)); gl_Position = vec4(p * 2. - 1., 0., 1.); }`;
+const FS2 = `#version 300 es
+precision highp float;
+uniform sampler2D u0, u1, u2; uniform highp sampler2D uZ;
+uniform float uGX, uGY, uPW, uPH, uTime, uD, uDark;
+uniform vec3 uInk, uSoft, uAcc, uL;
+uniform vec4 uShadow;
+out vec4 o;
+int GXi, GYi;
+ivec2 C(int x, int y) { return ivec2(x, GYi - 1 - y); }
+bool inside(int x, int y) { return x >= 0 && y >= 0 && x < GXi && y < GYi; }
+void main() {
+  GXi = int(uGX); GYi = int(uGY);
+  vec2 g = vec2(gl_FragCoord.x / uPW * uGX, (uPH - gl_FragCoord.y) / uPH * uGY);
+  int X = int(floor(g.x)), Y = int(floor(g.y));
+  vec2 f = fract(g) - .5;
+  float aa = uGY / uPH;
+  vec4 a = texelFetch(u0, C(X, Y), 0), b = texelFetch(u1, C(X, Y), 0);
+  float z = texelFetch(uZ, C(X, Y), 0).r;
+  vec3 col = uInk; float v = 0.;
+  if (z < 1. && b.a < .5) {
+    float dz = .3 + 60. * z, tone = (a.z - .5) * 3., pid = b.x * 255. + b.y * 65280.;
+    bool edge = false;
+    ivec2 nb[4] = ivec2[4](ivec2(-1, 0), ivec2(1, 0), ivec2(0, -1), ivec2(0, 1));
+    for (int i = 0; i < 4; i++) {
+      int nx = X + nb[i].x, ny = Y + nb[i].y;
+      if (!inside(nx, ny)) { edge = true; break; }
+      float zn = texelFetch(uZ, C(nx, ny), 0).r; vec4 bn = texelFetch(u1, C(nx, ny), 0);
+      if (zn >= 1. || bn.a > .5) { edge = true; break; }
+      vec4 an = texelFetch(u0, C(nx, ny), 0);
+      bool other = abs(bn.x * 255. + bn.y * 65280. - pid) > .5;
+      // a step in depth is an outline where the part or its facing changes, not along one face
+      // that simply recedes (a floor or a slab's top, seen at a low angle)
+      if ((.3 + 60. * zn) - dz > .12 && (other || length(an.xy - a.xy) > .08)) { edge = true; break; }
+      // where two parts meet, the one behind draws the line
+      if (other && zn <= z + .00007) { edge = true; break; }
+    }
+    if (edge) v = clamp(1. + tone * 1.1, .3, 1.);
+    else {
+      vec3 n = vec3(a.x * 2. - 1., a.y * 2. - 1., 0.); n.z = sqrt(max(0., 1. - dot(n.xy, n.xy)));
+      float lam = max(0., dot(n, uL));
+      float band = lam > .72 ? 0. : lam > .45 ? 1. : lam > .2 ? 2. : 3.;
+      v = uDark > .5 ? (band < .5 ? .8 : band < 1.5 ? .56 : band < 2.5 ? .36 : .2) + tone * .3 // tone is ink, in both themes
+                     : (band < .5 ? .34 : band < 1.5 ? .5 : band < 2.5 ? .66 : .84) + tone * .3;
+      vec4 c2 = texelFetch(u2, C(X, Y), 0);
+      if (c2.a > .5) { // the model's own color: lit smoothly, the dot grows with the light
+        float sh = .38 + .78 * lam;
+        col = clamp(c2.rgb * sh, 0., 1.);
+        float L = dot(col, vec3(.299, .587, .114)); // a model's own colour, kept the opposite of the page: light on dark, dark on light
+        if (uDark > .5) { if (L < .42) col = mix(col, vec3(1.), (.42 - L) / (1. - L)); }
+        else if (L > .45) col *= .45 / L;
+        v = uDark > .5 ? .5 + .5 * lam : .55 + .45 * (1. - lam * .5);
+      }
+    }
+    v *= mix(1., .6, clamp((dz - (uD - 1.)) / 2., 0., 1.));     // farther is fainter: layers separate
+    if (a.w > .5) { col = uDark > .5 ? uSoft : mix(uInk, uSoft, .4); v *= uDark > .5 ? .45 : .7; } // faded, but still the opposite of the page                      // outside the focus, or quiet
+    // a highlight tints and keeps the shading (a flat fill turned models into blobs); its outline is full accent
+    if (b.z > .12) { col = edge ? uAcc : mix(col, uAcc, .35 + .3 * min(1., b.z)); v = edge ? 1. : max(v, .25) + .1 * b.z; }
+  } else if (z < 1.) { col = uDark > .5 ? uSoft : mix(uInk, uSoft, .4); v = .3; }                       // a particle in flight
+  else {
+    float d = pow((float(X) + .5 - uShadow.x) / uShadow.z, 2.) + pow((float(Y) + .5 - uShadow.y) / uShadow.w, 2.);
+    if (d < 1.) { col = uSoft; v = .06 + .3 * (1. - d); }
+  }
+  if (v <= 0.) discard;
+  float r = .5 * sqrt(clamp(v, 0., 1.)) * .94;
+  float al = clamp((r - length(f)) / aa + .5, 0., 1.);
+  if (al <= 0.) discard;
+  o = vec4(col * al, al);
+}`;
+const VS3 = `#version 300 es
+precision highp float;
+layout(location=0) in vec4 aA;   // start xyz, along
+layout(location=1) in vec4 aB;   // end xyz, along
+layout(location=2) in vec4 aW;   // radius at start, at end, tone, flags (highlight 1, dim 2)
+layout(location=3) in vec4 aN;   // animation: kind, period, delay, strength
+uniform mat3 uR; uniform vec3 uOff;
+uniform float uK, uD, uF, uCX, uCY, uPW, uPH, uMinW, uMaxW;
+out float vAcross; out float vHalf; out float vT; out float vZ; flat out vec4 vAn; flat out vec2 vTF; flat out float vCov;
+void main() {
+  int c = gl_VertexID; float end = float(c & 1), side = (c & 2) == 0 ? -1. : 1.;
+  gl_Position = vec4(2., 2., 2., 1.);
+  vec3 qa = uR * (aA.xyz * uK + uOff), qb = uR * (aB.xyz * uK + uOff);
+  float da = uD - qa.z, db = uD - qb.z;
+  if (da < 0.3 || db < 0.3) return;
+  vec2 sa = vec2(uCX + qa.x * uF / da, uCY - qa.y * uF / da), sb = vec2(uCX + qb.x * uF / db, uCY - qb.y * uF / db);
+  float wa = 2. * aW.x * uK * uF / da, wb = 2. * aW.y * uK * uF / db, m = max(wa, wb);
+  float k = m < uMinW ? uMinW / max(m, 1e-6) : m > uMaxW ? uMaxW / m : 1.;
+  vCov = clamp(m / (uMinW * 3.5), .07, 1.); // a line thinner than a pixel is drawn wider, and fainter
+  wa *= k; wb *= k;
+  vec2 d = sb - sa; float L = length(d); vec2 dir = L > 1e-4 ? d / L : vec2(1., 0.), nr = vec2(-dir.y, dir.x);
+  float hw = mix(wa, wb, end) * .5;
+  vec2 p = mix(sa, sb, end) + nr * side * (hw + 1.) + dir * (end * 2. - 1.) * min(hw, 1.);
+  vAcross = side * (hw + 1.); vHalf = hw; vT = mix(aA.w, aB.w, end);
+  vZ = clamp((mix(da, db, end) - .3) / 60., 0., 1.);
+  vAn = aN; vTF = aW.zw;
+  gl_Position = vec4(p.x / uPW * 2. - 1., 1. - p.y / uPH * 2., 0., 1.);
+}`;
+const FS3 = `#version 300 es
+precision highp float;
+in float vAcross; in float vHalf; in float vT; in float vZ; flat in vec4 vAn; flat in vec2 vTF; flat in float vCov;
+uniform highp sampler2D uZ; uniform float uGX, uGY, uPW, uPH, uAnimT, uAlpha, uDens;
+uniform vec3 uInk, uSoft, uAcc;
+out vec4 o;
+${ANIM_GLSL}
+void main() {
+  float a = clamp(vHalf - abs(vAcross) + .5, 0., 1.);
+  if (a <= 0.) discard;
+  int gy = int((uPH - gl_FragCoord.y) / uPH * uGY);
+  float z = texelFetch(uZ, ivec2(int(gl_FragCoord.x / uPW * uGX), int(uGY) - 1 - gy), 0).r;
+  if (z < vZ - .0004) discard;                                    // a solid stands in front
+  float fl = vTF.y, lit = mod(fl, 2.), dim = floor(fl / 2.);
+  lit = max(lit, animLit(vAn, vT, uAnimT));
+  vec3 col = dim > .5 ? uSoft : uInk;
+  float al = clamp(.8 + vTF.x * .3, .35, 1.) * (dim > .5 ? .6 : 1.);
+  if (lit > .12) { col = mix(col, uAcc, clamp(lit * 1.4, 0., 1.)); al = max(al, .55 + .45 * lit); }
+  al *= a * uAlpha * (lit > .12 ? max(vCov, .6) : vCov * uDens);
+  o = vec4(col * al, al);
+}`;
+
+function compile(vs, fs) {
+  const mk = (t, s) => { const h = gl.createShader(t); gl.shaderSource(h, s); gl.compileShader(h); if (!gl.getShaderParameter(h, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(h)); return h; };
+  const p = gl.createProgram(); gl.attachShader(p, mk(gl.VERTEX_SHADER, vs)); gl.attachShader(p, mk(gl.FRAGMENT_SHADER, fs)); gl.linkProgram(p);
+  if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(p));
+  const u = {}; for (let i = 0, n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS); i < n; i++) { const nm = gl.getActiveUniform(p, i).name; u[nm] = gl.getUniformLocation(p, nm); }
+  return { p, u };
+}
+let P1, P2, P3, scatBuf, fb = null, t0 = null, t1 = null, t2 = null, tz = null;
+const fromData = new Float32Array(N * 8), toData = new Float32Array(N * 15), delay = new Float32Array(N);
+const layers = [];
+let front = 0; // the layer on screen now; the other one is fading away
+const smooth = e => (e <= 0 ? 0 : e >= 1 ? 1 : e * e * (3 - 2 * e));
+const fader = () => ({ a0: 0, a1: 0, t: 0, d: 1, at(now) { return this.a0 + (this.a1 - this.a0) * smooth((now - this.t) / this.d); },
+  to(v, now, wait, d) { this.a0 = this.at(now); this.a1 = v; this.t = now + wait; this.d = Math.max(0.01, d); } });
+function setupGL() {
+  if (!gl) throw new Error('this page needs WebGL2, which this browser does not offer');
+  P1 = compile(VS1, FS1); P2 = compile(VS2, FS2); P3 = compile(VS3, FS3);
+  const scat = new Float32Array(N * 4), r = rngM(7);
+  for (let i = 0; i < N; i++) { const d = norm3([r() - .5, r() - .5, r() - .5]), m = .25 + r() * .75; scat.set([d[0] * m, d[1] * m, d[2] * m, 0], i * 4); }
+  { const r2 = rngM(11); for (let i = 0; i < N; i++) delay[i] = r2() * 0.45; }
+  scatBuf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, scatBuf); gl.bufferData(gl.ARRAY_BUFFER, scat, gl.STATIC_DRAW);
+  const attrib = (b, layout) => {
+    gl.bindBuffer(gl.ARRAY_BUFFER, b);
+    const stride = layout.reduce((s, [, n]) => s + n, 0) * 4; let off = 0;
+    for (const [loc, n] of layout) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, n, gl.FLOAT, false, stride, off); off += n * 4; }
+  };
+  for (let i = 0; i < 2; i++) {
+    const L = { vao: gl.createVertexArray(), from: gl.createBuffer(), to: gl.createBuffer(), svao: gl.createVertexArray(), sbuf: gl.createBuffer(),
+                ns: 0, cloud: null, morph: false, t0: -99, pts: fader(), strokes: fader() };
+    gl.bindBuffer(gl.ARRAY_BUFFER, L.from); gl.bufferData(gl.ARRAY_BUFFER, fromData.byteLength, gl.DYNAMIC_DRAW);
+    gl.bindBuffer(gl.ARRAY_BUFFER, L.to); gl.bufferData(gl.ARRAY_BUFFER, toData.byteLength, gl.DYNAMIC_DRAW);
+    gl.bindVertexArray(L.vao);
+    attrib(L.from, [[0, 4], [1, 4]]); attrib(scatBuf, [[2, 4]]); attrib(L.to, [[3, 4], [4, 4], [5, 4], [6, 2], [7, 1]]);
+    gl.bindVertexArray(L.svao); gl.bindBuffer(gl.ARRAY_BUFFER, L.sbuf);
+    for (let loc = 0; loc < 4; loc++) { gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 4, gl.FLOAT, false, 64, loc * 16); gl.vertexAttribDivisor(loc, 1); }
+    gl.bindVertexArray(null);
+    layers.push(L);
+  }
+  fb = gl.createFramebuffer();
+  sizeTargets();
+}
+function sizeTargets() {
+  const tex = (internal, format, type) => {
+    const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, internal, GX, GY, 0, format, type, null);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D, k, v);
+    return t;
+  };
+  for (const t of [t0, t1, t2, tz]) if (t) gl.deleteTexture(t);
+  t0 = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE); t1 = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE); t2 = tex(gl.RGBA8, gl.RGBA, gl.UNSIGNED_BYTE); tz = tex(gl.DEPTH_COMPONENT24, gl.DEPTH_COMPONENT, gl.UNSIGNED_INT);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, t0, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT1, gl.TEXTURE_2D, t1, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT2, gl.TEXTURE_2D, t2, 0);
+  gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, tz, 0);
+  gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2]);
+  if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE) throw new Error('WebGL framebuffer incomplete');
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+}
+
+// colors come from the page's tokens, so light and dark both work
+let ink = [0.08, 0.08, 0.08], soft = [0.64, 0.64, 0.63], accent = [0.89, 0.34, 0.18], dark = false;
+const hex = (s, d) => { const m = /^#?([0-9a-f]{6})$/i.exec(s.trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16) / 255) : d; };
+function readInk() {
+  const cs = getComputedStyle(document.documentElement);
+  ink = hex(cs.getPropertyValue('--ink'), ink); soft = hex(cs.getPropertyValue('--muted'), soft); accent = hex(cs.getPropertyValue('--accent'), accent);
+  dark = ink[0] + ink[1] + ink[2] > 1.5;
+}
+readInk(); matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readInk);
+new MutationObserver(readInk).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] }); // a theme switch
+function fitCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const pw = Math.round(canvas.clientWidth * dpr) || 600, ph = Math.round(canvas.clientHeight * dpr) || Math.round(600 / ASPECT);
+  if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
+  const gy = Math.max(120, Math.min(G, Math.floor(ph / (ULTRA ? 2.3 : 4.2)))), gx = Math.round(gy * pw / ph);
+  if (gy !== GY || gx !== GX || !t0) { GY = gy; GX = gx; if (gl && fb) sizeTargets(); }
+}
+new ResizeObserver(fitCanvas).observe(canvas);
+
+// ---------- presenting a view: a morph into a new object, or a flight across the same world ----------
+const cam = { c: [0, 0, 0], r: 1, yaw: -0.5, pitch: 0.4 };
+let fly = null, free = false, lastInput = -10;
+let dragYaw = 0, dragPitch = 0, sway = 0, swayAmp = 0.5, dragging = null, released = -10;
+let last = performance.now() / 1000;
+const L0 = norm3([-0.5, 0.75, 0.45]);
+const ang = d => Math.atan2(Math.sin(d), Math.cos(d));
+const eyeYaw = () => cam.yaw + (reduce || free ? 0 : swayAmp * Math.sin(sway * 0.45)) + dragYaw;
+const eyePitch = () => Math.max(-1.3, Math.min(1.35, cam.pitch + dragPitch));
+function rows(yaw, pitch) {
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  return [cy, 0, sy, sy * sp, cp, -cy * sp, -sy * cp, sp, cy * cp];
+}
+const rot = (R, v) => [R[0] * v[0] + R[1] * v[1] + R[2] * v[2], R[3] * v[0] + R[4] * v[1] + R[5] * v[2], R[6] * v[0] + R[7] * v[1] + R[8] * v[2]];
+const unrot = (R, v) => [R[0] * v[0] + R[3] * v[1] + R[6] * v[2], R[1] * v[0] + R[4] * v[1] + R[7] * v[2], R[2] * v[0] + R[5] * v[1] + R[8] * v[2]];
+const frameOf = c => ({ k: c.cam.r / cam.r, off: scl3(sub3(c.cam.c, cam.c), 1 / cam.r) }); // a layer's terms -> the camera's
+
+function upload(L, c, src) { // src: positions, normals and tones to morph from, in c's terms; null = no morph
+  const from = src || c;
+  for (let i = 0; i < N; i++) {
+    const k = i * 3, o = i * 8, t = i * 15;
+    fromData[o] = from.P[k]; fromData[o + 1] = from.P[k + 1]; fromData[o + 2] = from.P[k + 2]; fromData[o + 3] = delay[i];
+    fromData[o + 4] = from.NN[k]; fromData[o + 5] = from.NN[k + 1]; fromData[o + 6] = from.NN[k + 2]; fromData[o + 7] = from.tone[i];
+    toData[t] = c.P[k]; toData[t + 1] = c.P[k + 1]; toData[t + 2] = c.P[k + 2]; toData[t + 3] = c.tone[i];
+    toData[t + 4] = c.NN[k]; toData[t + 5] = c.NN[k + 1]; toData[t + 6] = c.NN[k + 2]; toData[t + 7] = c.flags[i];
+    toData[t + 8] = c.ak[i]; toData[t + 9] = c.apos[i]; toData[t + 10] = c.aper[i] || 1; toData[t + 11] = c.adel[i];
+    toData[t + 12] = c.astr[i]; toData[t + 13] = c.pid[i]; toData[t + 14] = c.COL ? c.COL[i] : -1;
+  }
+  gl.bindBuffer(gl.ARRAY_BUFFER, L.from); gl.bufferSubData(gl.ARRAY_BUFFER, 0, fromData);
+  gl.bindBuffer(gl.ARRAY_BUFFER, L.to); gl.bufferSubData(gl.ARRAY_BUFFER, 0, toData);
+  gl.bindBuffer(gl.ARRAY_BUFFER, L.sbuf); gl.bufferData(gl.ARRAY_BUFFER, c.SG.length ? c.SG : new Float32Array(16), gl.DYNAMIC_DRAW);
+  L.ns = c.ns; L.cloud = c;
+}
+function dust() { // the scattered cloud the first view assembles from
+  const P = new Float32Array(N * 3), NN = new Float32Array(N * 3), tone = new Float32Array(N), r = rngM(11);
+  for (let i = 0; i < N; i++) { r(); const s = norm3([r() - .5, r() - .5, r() - .5]), q = 1.2 + r() * 1.2; P.set([s[0] * q, s[1] * q, s[2] * q], i * 3); NN.set(s, i * 3); }
+  return { P, NN, tone };
+}
+function onScreenNow(L) { // where each of a layer's points sits right now, in the camera's terms
+  const c = L.cloud, { k, off } = frameOf(c), P = new Float32Array(N * 3), d = dust();
+  for (let i = 0; i < N; i++) {
+    if (c.flags[i] & 16) { P[i * 3] = d.P[i * 3]; P[i * 3 + 1] = d.P[i * 3 + 1]; P[i * 3 + 2] = d.P[i * 3 + 2]; continue; }
+    for (let a = 0; a < 3; a++) P[i * 3 + a] = c.P[i * 3 + a] * k + off[a];
+  }
+  return { P, NN: c.NN, tone: c.tone };
+}
+function present(c, kind, now) {
+  const prev = layers[front], next = layers[1 - front];
+  const want = { c: c.cam.c, r: c.cam.r, yaw: c.view[0], pitch: c.view[1] };
+  const from = { c: cam.c.slice(), r: cam.r, yaw: eyeYaw(), pitch: eyePitch() };
+  sway = 0; dragYaw = 0; dragPitch = 0; Object.assign(cam, from);
+  if (kind === 'morph' || !prev.cloud) {
+    const src = prev.cloud ? onScreenNow(prev) : dust();
+    cam.c = c.cam.c.slice(); cam.r = c.cam.r; // the new object is framed at once; only the angle turns
+    upload(next, c, src); next.morph = true; next.t0 = now;
+    next.pts.to(1, now, 0, 0.01); next.strokes.a0 = 0; next.strokes.a1 = 0; next.strokes.to(1, now, DUR * 0.85, 0.5);
+    prev.pts.to(0, now, 0, 0.01); prev.strokes.to(0, now, 0, 0.25);
+    fly = { a: Object.assign({}, from, { c: cam.c, r: cam.r }), b: want, t0: now, dur: reduce ? 0.01 : 1.2, P: null, bump: 0 };
+  } else {
+    upload(next, c, null); next.morph = false; next.t0 = now;
+    const f = kind === 'fly' ? flight(from, want, now) : null, dur = f ? f.dur : 0.6;
+    next.pts.a0 = 0; next.pts.a1 = 0; next.pts.to(1, now, dur * 0.1, dur * 0.55);
+    next.strokes.a0 = 0; next.strokes.a1 = 0; next.strokes.to(1, now, dur * 0.1, dur * 0.55);
+    prev.pts.to(0, now, dur * 0.45, dur * 0.5); prev.strokes.to(0, now, dur * 0.3, dur * 0.5);
+    fly = f;
+  }
+  front = 1 - front;
+  document.getElementById('labels').innerHTML = c.labels.map(l => `<span class="label${l.focus ? ' focus' : ''}" style="opacity:0">${esc(l.text)}</span>`).join('');
+  document.getElementById('notes').innerHTML = c.notes.map(n => `<div class="note${n.align === 'left' ? ' left' : ''}${n.lit ? ' lit' : ''}${n.weight ? ' bold' : ''}" style="opacity:0">${inline(n.text)}</div>`).join('');
+}
+// a camera flight: zoom about the one point that stays put, or (for a long pan) rise and come down
+function flight(a, b, now) {
+  const rho = b.r / a.r, f = { a, b, t0: now, P: null, bump: 0 };
+  if (Math.abs(1 - rho) > 0.2) {
+    const P = scl3(sub3(b.c, scl3(a.c, rho)), 1 / (1 - rho));
+    if (dist3(P, a.c) < 3 * Math.max(a.r, b.r)) f.P = P;
+  }
+  if (!f.P) f.bump = Math.max(0, Math.log(dist3(a.c, b.c) / (1.4 * Math.max(a.r, b.r))));
+  f.dur = reduce ? 0.01 : Math.min(2.8, 1.1 + 0.32 * Math.abs(Math.log(rho)) + 0.4 * f.bump);
+  return f;
+}
+function camAt(f, e) {
+  const { a, b } = f;
+  let r = Math.exp(Math.log(a.r) + (Math.log(b.r) - Math.log(a.r)) * e), c;
+  if (f.P) c = add3(f.P, scl3(sub3(a.c, f.P), r / a.r));
+  else { c = add3(a.c, scl3(sub3(b.c, a.c), e)); r *= Math.exp(f.bump * Math.sin(Math.PI * e)); }
+  return { c, r, yaw: a.yaw + ang(b.yaw - a.yaw) * e, pitch: a.pitch + (b.pitch - a.pitch) * e };
+}
+const easeIO = e => (e <= 0 ? 0 : e >= 1 ? 1 : e < .5 ? 4 * e * e * e : 1 - Math.pow(-2 * e + 2, 3) / 2);
+
+function frame() {
+  const now = performance.now() / 1000, dt = Math.min(0.05, now - last); last = now;
+  const s = stops[cur] || {};
+  if (!reduce) sway += dt;
+  swayAmp += ((s.object ? (s.spin === false ? 0.05 : 0.22) : 0.03) - swayAmp) * Math.min(1, dt * 1.5);
+  if (!dragging && !free && now - released > 1.5) { dragYaw *= Math.exp(-dt * 0.9); dragPitch *= Math.exp(-dt * 0.9); }
+  if (fly) { const e = easeIO((now - fly.t0) / fly.dur); Object.assign(cam, e >= 1 ? fly.b : camAt(fly, e)); if (e >= 1) { cam.c = fly.b.c.slice(); fly = null; } }
+  const yaw = eyeYaw(), pitch = eyePitch(), R = rows(yaw, pitch);
+  const F = GY * FFP, CX = GX * CXF, CY = GY * CYP;
+  gl.bindFramebuffer(gl.FRAMEBUFFER, fb); gl.viewport(0, 0, GX, GY);
+  gl.clearColor(0, 0, 0, 0); gl.clearDepth(1); gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+  gl.enable(gl.DEPTH_TEST); gl.depthFunc(gl.LESS); gl.useProgram(P1.p);
+  const R9 = [R[0], R[3], R[6], R[1], R[4], R[7], R[2], R[5], R[8]];
+  for (const L of [layers[1 - front], layers[front]]) {
+    const al = L.pts.at(now); if (!L.cloud || al <= 0.002) continue;
+    const u = P1.u, { k, off } = frameOf(L.cloud);
+    gl.bindVertexArray(L.vao);
+    gl.uniform1f(u.uT, L.morph ? now - L.t0 : 99); gl.uniform1f(u.uDur, DUR); gl.uniform1f(u.uAnimT, now - L.t0 - (L.morph ? DUR : 0) - 0.5);
+    gl.uniform1f(u.uF, F); gl.uniform1f(u.uD, D); gl.uniform1f(u.uGX, GX); gl.uniform1f(u.uGY, GY); gl.uniform1f(u.uCX, CX); gl.uniform1f(u.uCY, CY); gl.uniform1f(u.uSize, DOT);
+    gl.uniform1f(u.uK, k); gl.uniform3fv(u.uOff, off); gl.uniform1f(u.uAlpha, al);
+    gl.uniformMatrix3fv(u.uR, false, R9);
+    gl.drawArrays(gl.POINTS, 0, N);
+  }
+  gl.disable(gl.DEPTH_TEST);
+  gl.bindFramebuffer(gl.FRAMEBUFFER, null); gl.viewport(0, 0, canvas.width, canvas.height);
+  gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
+  gl.useProgram(P2.p); gl.bindVertexArray(null);
+  let u = P2.u;
+  [[t0, 'u0'], [t1, 'u1'], [tz, 'uZ'], [t2, 'u2']].forEach(([t, nm], i) => { gl.activeTexture(gl.TEXTURE0 + i); gl.bindTexture(gl.TEXTURE_2D, t); gl.uniform1i(u[nm], i); });
+  gl.uniform1f(u.uGX, GX); gl.uniform1f(u.uGY, GY); gl.uniform1f(u.uPW, canvas.width); gl.uniform1f(u.uPH, canvas.height);
+  gl.uniform1f(u.uTime, now); gl.uniform1f(u.uD, D); gl.uniform1f(u.uDark, dark ? 1 : 0);
+  gl.uniform3fv(u.uInk, ink); gl.uniform3fv(u.uSoft, soft); gl.uniform3fv(u.uAcc, accent); gl.uniform3fv(u.uL, L0);
+  const T = layers[front];
+  if (T.cloud && s.object && !free) { // a soft shadow under a single object
+    const { k, off } = frameOf(T.cloud), q = rot(R, add3(scl3([0, T.cloud.minY - 0.12, 0], k), off)), dd = D - q[2];
+    const rx = GY * 0.3 * k; gl.uniform4f(u.uShadow, CX + q[0] * F / dd, CY - q[1] * F / dd, rx, Math.max(1, rx * Math.sin(pitch) * 0.3));
+  } else gl.uniform4f(u.uShadow, -999, -999, 1, 1);
+  gl.drawArrays(gl.TRIANGLES, 0, 3);
+  // strokes, crisp, over the dots
+  gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+  gl.useProgram(P3.p); u = P3.u;
+  gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, tz); gl.uniform1i(u.uZ, 0);
+  const pxRow = canvas.height / GY;
+  for (const L of [layers[1 - front], layers[front]]) {
+    const al = L.strokes.at(now); if (!L.cloud || !L.ns || al <= 0.002) continue;
+    const { k, off } = frameOf(L.cloud);
+    gl.bindVertexArray(L.svao);
+    gl.uniformMatrix3fv(u.uR, false, R9); gl.uniform3fv(u.uOff, off); gl.uniform1f(u.uK, k); gl.uniform1f(u.uD, D);
+    gl.uniform1f(u.uF, canvas.height * FFP); gl.uniform1f(u.uCX, canvas.width * CXF); gl.uniform1f(u.uCY, canvas.height * CYP);
+    gl.uniform1f(u.uPW, canvas.width); gl.uniform1f(u.uPH, canvas.height);
+    gl.uniform1f(u.uMinW, Math.max(1.1, 0.6 * (window.devicePixelRatio || 1))); gl.uniform1f(u.uMaxW, pxRow * 3.4);
+    gl.uniform1f(u.uGX, GX); gl.uniform1f(u.uGY, GY); gl.uniform1f(u.uAnimT, now - L.t0 - (L.morph ? DUR : 0) - 0.5); gl.uniform1f(u.uAlpha, al); gl.uniform1f(u.uDens, L.cloud.density ?? 1);
+    gl.uniform3fv(u.uInk, ink); gl.uniform3fv(u.uSoft, soft); gl.uniform3fv(u.uAcc, accent);
+    gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, 4, L.ns);
+  }
+  gl.disable(gl.BLEND); gl.bindVertexArray(null);
+  overlay(now, R);
+  maybeRebuild(now);
+  tickUI(now);
+  requestAnimationFrame(frame);
+}
+
+// labels and notes ride on the projection; labels show once the view has settled, spread apart
+let lastR = null;
+// a click names what is under it: the front-most point near the cursor, its part, a model's own part
+window.seePick = (clientX, clientY) => {
+  const T = layers[front], c = T.cloud; if (!c || !lastR || !c.pinfo) return null;
+  const rect = canvas.getBoundingClientRect(), fx = (clientX - rect.left) / rect.width, fy = (clientY - rect.top) / rect.height;
+  const { k, off } = frameOf(c), R = lastR, tx = 2.2 / GX, ty = 2.2 / GY;
+  let best = -1, bestD = 1e9;
+  for (let i = 0; i < N; i++) {
+    if (c.flags[i] & 16) continue;
+    const p = [c.P[i * 3] * k + off[0], c.P[i * 3 + 1] * k + off[1], c.P[i * 3 + 2] * k + off[2]];
+    const q = rot(R, p), d = D - q[2]; if (d < 0.3 || d >= bestD) continue;
+    const x = CXF + q[0] * FFP / (d * ASPECT), y = CYP - q[1] * FFP / d;
+    if (Math.abs(x - fx) < tx && Math.abs(y - fy) < ty) { best = i; bestD = d; }
+  }
+  if (best < 0) return null;
+  const info = c.pinfo[c.pid[best]] || {}, sub = c.SUB ? c.SUB[best] : -1, me = c.pid[best];
+  // where on its part the click landed, -1..1 on each axis of the part's box (x right, y up, z front)
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9];
+  for (let i = 0; i < N; i++) if (c.pid[i] === me && !(c.flags[i] & 16)) for (let a = 0; a < 3; a++) { const v = c.P[i * 3 + a]; if (v < lo[a]) lo[a] = v; if (v > hi[a]) hi[a] = v; }
+  const rel = [0, 1, 2].map(a => hi[a] > lo[a] ? +(((c.P[best * 3 + a] - lo[a]) / (hi[a] - lo[a])) * 2 - 1).toFixed(2) : 0);
+  const at = [0, 1, 2].map(a => c.P[best * 3 + a] * c.cam.r + c.cam.c[a]); // the spot, in world terms
+  const ids = info.ids || [], owner = info.id || (ids.length ? ids[ids.length - 1] : null);
+  return { id: info.id, label: info.label, owner, ids, type: info.type, part: info.parts && sub >= 0 ? info.parts[sub] : null, rel, at };
+};
+// for the cursor (Claude's mark on the canvas): where a world point is on screen, where a spot on a
+// named part is in the world, and a camera flight to a point
+window.seeProject = w => {
+  if (!lastR) return null;
+  const q = rot(lastR, scl3(sub3(w, cam.c), 1 / cam.r)), d = D - q[2]; if (d < 0.3) return null;
+  const rect = canvas.getBoundingClientRect();
+  return [rect.left + (CXF + q[0] * FFP / (d * ASPECT)) * rect.width, rect.top + (CYP - q[1] * FFP / d) * rect.height];
+};
+window.seeLocate = (id, rel) => {
+  const c = layers[front].cloud; if (!c || !c.pinfo) return null;
+  const want = new Set(), k = String(id); c.pinfo.forEach((x, i) => { if (x && (x.id === k || x.label === k || (x.ids && x.ids.includes(k)))) want.add(i); });
+  const lo = [1e9, 1e9, 1e9], hi = [-1e9, -1e9, -1e9]; let any = false;
+  for (let i = 0; i < N; i++) if (want.has(c.pid[i]) && !(c.flags[i] & 16)) { any = true; for (let a = 0; a < 3; a++) { const v = c.P[i * 3 + a] * c.cam.r + c.cam.c[a]; if (v < lo[a]) lo[a] = v; if (v > hi[a]) hi[a] = v; } }
+  if (!any) return null;
+  const r = rel || [0, 0, 0];
+  return [0, 1, 2].map(a => (lo[a] + hi[a]) / 2 + (hi[a] - lo[a]) / 2 * (r[a] || 0));
+};
+window.seeGo = (w, zoom) => {
+  const now = performance.now() / 1000;
+  if (playing) { playing = false; syncPlay(); }
+  free = true; lastInput = now;
+  fly = { a: Object.assign({}, cam, { c: cam.c.slice() }), b: { c: w.slice(), r: cam.r * (zoom || 1), yaw: cam.yaw, pitch: cam.pitch }, t0: now, dur: reduce ? 0.01 : 1.3, P: null, bump: 0 };
+};
+function overlay(now, R) {
+  lastR = R;
+  const T = layers[front], c = T.cloud; if (!c) return;
+  const W = canvas.clientWidth, H = canvas.clientHeight, { k, off } = frameOf(c);
+  const settled = !fly && (!T.morph || now - T.t0 > DUR + 0.4) && T.pts.at(now) > 0.95;
+  const project = p => { const q = rot(R, add3(scl3(p, k), off)), d = D - q[2]; return [CXF + q[0] * FFP / (d * ASPECT), CYP - q[1] * FFP / d, d]; };
+  const lab = document.getElementById('labels').children;
+  const placed = [];
+  c.labels.forEach((l, i) => {
+    const [x, y, d] = project([l.p[0], l.p[1] + 0.03, l.p[2]]);
+    const el = lab[i]; if (!el) return;
+    if (d < 0.3 || x < -0.02 || x > 1.02 || y < -0.02 || y > 1.02) { el.style.opacity = 0; return; }
+    placed.push({ i, x: x * 100, y: y * 100 - 1.2, l, w: (16 + l.text.length * 7.4) / W * 100 });
+  });
+  const ranked = stops[cur] && stops[cur].object ? placed : placed.sort((a, b) => (b.l.focus - a.l.focus) || (a.l.quiet - b.l.quiet) || (b.l.size - a.l.size));
+  const limit = stops[cur] && stops[cur].focus ? 12 : 6; // the overview names only its biggest parts
+  const pick = stops[cur] && Array.isArray(stops[cur].labels) ? new Set(stops[cur].labels) : null; // a stop may name its labels
+  const shown = pick ? ranked.filter(q => pick.has(q.l.id)) : ranked.filter(q => q.l.focus || q.l.size > 0.035 || ranked.length <= limit).slice(0, limit);
+  const hidden = new Set(ranked.filter(q => !shown.includes(q)).map(q => q.i));
+  { const edge = ((PN.x || 0) + PN.w) * 100, left = (PN.x || 0) * 100; // inside the world's half: a label past its edge would sit under my words, so it hides
+    for (let i = shown.length - 1; i >= 0; i--) { const q = shown[i]; if (edge < 99.5 && q.x > edge - 4) { hidden.add(q.i); shown.splice(i, 1); } else q.x = Math.max(left + 1.5, Math.min(q.x, edge - q.w - 1)); } }
+  shown.sort((a, b) => a.y - b.y);
+  const rowH = 19 / H * 100;
+  for (let a = 0; a < shown.length; a++) for (let b = 0; b < a; b++) {
+    const A = shown[a], B = shown[b];
+    if (Math.abs(A.y - B.y) < rowH && A.x < B.x + B.w && B.x < A.x + A.w) A.y = B.y + rowH;
+  }
+  for (const q of shown) { const el = lab[q.i]; el.style.left = q.x + '%'; el.style.top = q.y + '%'; el.style.opacity = settled && !q.l.dim ? 1 : 0; }
+  for (const i of hidden) lab[i].style.opacity = 0;
+  const notes = document.getElementById('notes').children, nfade = T.morph ? (settled ? 1 : 0) : T.pts.at(now);
+  c.notes.forEach((n, i) => {
+    const el = notes[i]; if (!el) return;
+    const [x, y, d] = project(n.p);
+    const px = d > 0.3 ? n.size * k * FFP / d * H : 0;
+    if (px < 6 || px > 140) { el.style.opacity = 0; return; }
+    el.style.left = x * 100 + '%'; el.style.top = y * 100 + '%'; el.style.fontSize = (px / 1.3).toFixed(2) + 'px';
+    el.style.width = n.width ? (n.width * k * FFP / d * H).toFixed(1) + 'px' : 'auto';
+    el.style.whiteSpace = n.width ? 'pre-wrap' : 'pre';
+    el.style.opacity = (Math.min(1, (px - 6) / 4) * nfade * (n.dim ? 0 : 1) * (n.tone < -0.3 ? 0.65 : 1)).toFixed(3);
+  });
+}
+
+// ---------- building views: in a worker, so the page never stalls; on the page if it cannot ----------
+const clouds = {}, jobs = {};
+let pendingK = -1, worker = null, handle = null, freeKey = null, freeN = 0;
+const send = m => (worker ? worker.postMessage(m) : handle && handle(m));
+function arrived(key, c) {
+  const j = jobs[key]; if (!j) return;
+  c.view = c.autoView || j.view; c.w = j.w;
+  if (key[0] === 'f') { // a view built for where the reader has taken the camera
+    if (key === freeKey) { freeKey = null; if (free && j.k === cur) present(c, 'fade', performance.now() / 1000); }
+    return;
+  }
+  clouds[key] = c;
+  const k = +key.slice(1);
+  if (k === pendingK) { pendingK = -1; go(k, performance.now() / 1000); }
+}
+function failed(key, message) {
+  if (key && key[0] === 'f') { if (key === freeKey) freeKey = null; return; }
+  document.getElementById('title').textContent = 'This scene could not be drawn: ' + message;
+}
+const onMsg = m => (m.type === 'cloud' ? arrived(m.key, m.c) : failed(m.key, m.message));
+let allJobs = [];
+function startBuilding(list) {
+  allJobs = list;
+  const geoText = document.getElementById('geo').textContent;
+  const msg = { type: 'init', N, G, ASPECT: ASPECT * PANE, assets: S.assets || {}, worlds, jobs: list, images: decoded };
+  try {
+    worker = new Worker(URL.createObjectURL(new Blob([geoText], { type: 'text/javascript' })));
+    let heard = false;
+    worker.onmessage = ev => { heard = true; onMsg(ev.data); };
+    worker.onerror = ev => { ev.preventDefault(); if (!heard) { worker.terminate(); worker = null; buildHere(geoText, list); } else failed(null, ev.message || 'worker error'); };
+    worker.postMessage(msg, Object.values(decoded));
+  } catch (err) { worker = null; buildHere(geoText, list); }
+}
+let decoded = {};
+async function buildHere(geoText, list) { // the same code, run on the page
+  const f = new Function(geoText + '\nreturn { makeRunner, decodeImages };')();
+  const images = await f.decodeImages(S.assets || {}); // bitmaps sent to a dead worker are gone
+  handle = f.makeRunner(onMsg);
+  handle({ type: 'init', N, G, ASPECT: ASPECT * PANE, assets: S.assets || {}, worlds, jobs: list, images });
+}
+async function decodeImagesHere() {
+  const f = new Function(document.getElementById('geo').textContent + '\nreturn decodeImages;')();
+  return f(S.assets || {});
+}
+// once the reader has zoomed, panned or turned far enough, rebuild the view for where they are
+function maybeRebuild(now) {
+  if (!free || freeKey || fly || now - lastInput < 0.3 || dragging) return;
+  const c = layers[front].cloud; if (!c) return;
+  const yaw = eyeYaw(), pitch = eyePitch();
+  const moved = Math.abs(Math.log(cam.r / c.cam.r)) > 0.16 || dist3(cam.c, c.cam.c) / cam.r > 0.16 || Math.abs(ang(yaw - c.view[0])) + Math.abs(pitch - c.view[1]) > 0.3;
+  if (!moved) return;
+  const key = 'f' + (++freeN), base = jobOf(cur);
+  const j = Object.assign(base, { key, cam: { c: cam.c.slice(), r: cam.r }, view: [yaw, pitch], spin: false, seed: 50 + freeN, k: cur });
+  jobs[key] = j; freeKey = key;
+  send({ type: 'job', job: j, replace: 'f' });
+}
+
+// ---------- the steps ----------
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>');
+function md(text) {
+  const src = Array.isArray(text) ? text.join('\n\n') : String(text || '');
+  return src.split(/\n\s*\n/).map(b => {
+    const lines = b.split('\n').filter(l => l.trim());
+    if (lines.length && lines.every(l => /^\s*[-*] /.test(l)))
+      return '<ul>' + lines.map(l => '<li>' + inline(l.replace(/^\s*[-*] /, '')) + '</li>').join('') + '</ul>';
+    return '<p>' + inline(lines.join(' ')) + '</p>';
+  }).join('');
+}
+
+let cur = -1, reached = 0, playing = !reduce, stepAt = 0, began = 0, done = false, doneAt = 0;
+const dwell = s => {
+  const words = String(s.caption || '').length + String(s.detail || '').length + (Array.isArray(s.points) ? s.points.join(' ').length : 0);
+  const moving = JSON.stringify(s.shape || []).includes('"animate"') || (s.animate && Object.keys(s.animate).length);
+  return Math.max(moving ? 9000 : 3800, 1800 + 42 * words);
+};
+function go(k, now) {
+  const c = clouds['s' + k], T = layers[front].cloud;
+  if (free) { free = false; cam.yaw += dragYaw; cam.pitch = eyePitch(); dragYaw = 0; dragPitch = 0; }
+  present(c, T && T.w === c.w ? 'fly' : 'morph', now); stepAt = now;
+}
+function show(k, now = performance.now() / 1000) {
+  k = Math.max(0, Math.min(stops.length - 1, k));
+  if (k !== cur || free) {
+    cur = k;
+    if (clouds['s' + k]) go(k, now);
+    else { pendingK = k; send({ type: 'want', key: 's' + k }); document.getElementById('labels').innerHTML = ''; }
+  }
+  reached = Math.max(reached, k); stepAt = now;
+  [...document.getElementById('steps').children].forEach((li, i) => {
+    li.className = (i === k ? 'now' : '') + (i > reached && !done ? ' hidden' : '');
+  });
+}
+function finish() {
+  done = true; playing = false;
+  document.getElementById('summary').classList.add('show');
+  document.getElementById('play').textContent = 'Replay';
+  show(cur);
+}
+function tickUI(now) {
+  const g = document.getElementById('glyph').children, f = Math.floor(now * 6);
+  for (let i = 0; i < 9; i++) g[i].className = (playing ? (i * 5 + f) % 9 < 4 : i % 2 === 0) ? 'on' : '';
+  document.getElementById('phase').textContent = done ? 'Seen' : `Step ${cur + 1} of ${stops.length}`;
+  document.getElementById('clock').textContent = ((done ? doneAt : now) - began).toFixed(1) + 's';
+  if (playing && pendingK < 0 && !fly && now - stepAt > dwell(stops[cur]) / 1000) {
+    if (cur < stops.length - 1) show(cur + 1, now); else { doneAt = now; finish(); }
+  }
+}
+
+async function init() {
+  if (!S || !stops.length) {
+    document.getElementById('title').textContent = 'Nothing to see: this page was opened without a scene.';
+    return;
+  }
+  document.title = S.title ? String(S.title).slice(0, 60) : 'See';
+  document.getElementById('title').textContent = S.title || '';
+  document.getElementById('glyph').innerHTML = '<i></i>'.repeat(9);
+  if (WORLD) document.getElementById('hint').textContent = 'Drag to move · scroll to zoom · shift-drag to turn · ← → to step · space to pause';
+  fitCanvas(); setupGL();
+  decoded = await decodeImagesHere();
+  const list = stops.map((s, k) => (jobs['s' + k] = jobOf(k)));
+  const m = /step=(\d+)/.exec(location.hash); // #step=N opens paused on step N
+  const first = m ? Math.max(0, Math.min(stops.length - 1, +m[1] - 1)) : 0;
+  list.unshift(list.splice(first, 1)[0]);
+  startBuilding(list); // every view builds off the page; the one on screen first
+  // the canvas changed shape (the panel grew or shrank): re-plan every view for the new shape
+  let reshapeT = 0;
+  new ResizeObserver(() => {
+    clearTimeout(reshapeT);
+    reshapeT = setTimeout(() => {
+      const r = document.getElementById('viz').getBoundingClientRect();
+      if (r.width < 50 || r.height < 50) return;
+      const a = Math.max(0.5, Math.min(2.6, r.width / r.height));
+      const pn = paneOf();
+      if (Math.abs(a / ASPECT - 1) < 0.02 && pn.w === PN.w && pn.h === PN.h && pn.x === PN.x) return;
+      ASPECT = a; setPane(pn);
+      for (const k in clouds) delete clouds[k];
+      freeKey = null;
+      const k = Math.max(0, cur);
+      send({ type: 'aspect', ASPECT: ASPECT * PANE, jobs: allJobs, first: 's' + k });
+      cur = -1; free = false; show(k);
+    }, 220);
+  }).observe(document.getElementById('viz'));
+  document.getElementById('steps').innerHTML = stops.map((s, i) =>
+    `<li data-i="${i}">${inline(s.caption || '')}${s.detail ? `<div class="detail">${inline(s.detail)}</div>` : ''}` +
+    `${Array.isArray(s.points) && s.points.length ? `<ul class="pts">${s.points.map(t => `<li>${inline(t)}</li>`).join('')}</ul>` : ''}</li>`).join('');
+  document.getElementById('summary').innerHTML = md(S.summary);
+  document.getElementById('steps').addEventListener('click', e => {
+    const li = e.target.closest('li[data-i]'); if (li) { playing = false; syncPlay(); show(+li.dataset.i); }
+  });
+  began = performance.now() / 1000;
+  if (reduce) { done = true; document.getElementById('summary').classList.add('show'); }
+  if (m) { playing = false; reached = stops.length; show(first); } else show(0);
+  syncPlay();
+  requestAnimationFrame(frame);
+}
+function syncPlay() { document.getElementById('play').textContent = done ? 'Replay' : playing ? 'Pause' : 'Play'; }
+function step(d) { playing = false; syncPlay(); show(cur + d); }
+document.getElementById('prev').onclick = () => step(-1);
+document.getElementById('next').onclick = () => step(1);
+document.getElementById('play').onclick = () => {
+  if (done && !reduce) { done = false; reached = 0; began = performance.now() / 1000; document.getElementById('summary').classList.remove('show'); playing = true; show(0); }
+  else playing = !playing;
+  syncPlay();
+};
+addEventListener('keydown', e => {
+  if (e.key === 'ArrowRight') step(1);
+  else if (e.key === 'ArrowLeft') step(-1);
+  else if (e.key === ' ') { e.preventDefault(); document.getElementById('play').click(); }
+});
+
+// ---------- the reader's own camera: drag to pan (a world) or turn (an object), scroll to zoom ----------
+const viz = document.getElementById('viz');
+let px0 = 0, py0 = 0;
+const takeOver = () => { free = true; lastInput = performance.now() / 1000; if (playing) { playing = false; syncPlay(); } if (fly) { Object.assign(cam, camAt(fly, 1)); fly = null; } };
+viz.addEventListener('contextmenu', e => e.preventDefault());
+viz.addEventListener('pointerdown', e => {
+  dragging = WORLD && e.button === 0 && !e.shiftKey ? 'pan' : 'turn';
+  px0 = e.clientX; py0 = e.clientY; viz.setPointerCapture(e.pointerId);
+});
+viz.addEventListener('pointermove', e => {
+  if (!dragging) return;
+  const dx = e.clientX - px0, dy = e.clientY - py0; px0 = e.clientX; py0 = e.clientY;
+  if (!dx && !dy) return;
+  if (dragging === 'pan') {
+    if (!free) { cam.yaw = eyeYaw(); sway = 0; }
+    takeOver();
+    const k = D / (FFP * viz.clientHeight) * cam.r, R = rows(eyeYaw(), eyePitch());
+    cam.c = sub3(cam.c, unrot(R, [dx * k, -dy * k, 0]));
+  } else {
+    const k = 3.2 / viz.clientWidth;
+    dragYaw += dx * k; dragPitch += dy * k;
+    if (free) lastInput = performance.now() / 1000;
+  }
+});
+const release = () => { if (dragging) { dragging = null; released = performance.now() / 1000; } };
+viz.addEventListener('pointerup', release); viz.addEventListener('pointercancel', release);
+viz.addEventListener('wheel', e => {
+  e.preventDefault();
+  if (!layers[front] || !layers[front].cloud) return;
+  if (!free) { cam.yaw = eyeYaw(); sway = 0; }
+  takeOver();
+  const rect = viz.getBoundingClientRect(), xf = (e.clientX - rect.left) / rect.width, yf = (e.clientY - rect.top) / rect.height;
+  const R = rows(eyeYaw(), eyePitch()), u = unrot(R, [(xf - CXF) * ASPECT * D / FFP, -(yf - CYP) * D / FFP, 0]);
+  const P = add3(cam.c, scl3(u, cam.r)), r = Math.max(1e-6, cam.r * Math.exp(Math.max(-0.6, Math.min(0.6, e.deltaY * (e.ctrlKey ? 0.01 : 0.0015)))));
+  cam.r = r; cam.c = sub3(P, scl3(u, r)); // the point under the cursor stays under it
+}, { passive: false });
+
+init().catch(err => { document.getElementById('title').textContent = 'This scene could not be drawn: ' + err.message; console.error(err); });
+</script>
+</body>
+</html>

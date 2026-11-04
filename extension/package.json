@@ -1,0 +1,38 @@
+{
+  "name": "see-talk",
+  "displayName": "See for Claude Code",
+  "description": "Claude Code answers in 3D beside the chat: halftone worlds you walk stop by stop, click to ask about any part.",
+  "publisher": "zekevoigt",
+  "version": "0.3.0",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.80.0"
+  },
+  "main": "./extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "seeTalk.open",
+        "title": "See: Open session talk"
+      }
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ZekeVoigt/andromeda-see-public"
+  },
+  "categories": [
+    "Visualization",
+    "AI"
+  ],
+  "keywords": [
+    "claude",
+    "claude code",
+    "3d",
+    "explain",
+    "visual"
+  ]
+}

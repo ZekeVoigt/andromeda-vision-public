@@ -1,0 +1,63 @@
+{
+  "title": "Find a birthday gift for my brother.",
+  "steps": [
+    {
+      "caption": "Searching email",
+      "detail": "Start from what he has actually been doing lately.",
+      "shape": [
+        {"type": "torus", "radius": 0.5, "tube": 0.09, "rot": [90, 0, 0], "label": "inbox"},
+        {"type": "cylinder", "radius": 0.44, "height": 0.03, "rot": [90, 0, 0], "tone": -0.3},
+        {"type": "tube", "from": [0.38, -0.38, 0], "to": [0.95, -0.95, 0], "radius": 0.09}
+      ]
+    },
+    {
+      "caption": "He solved a 5×5 Rubik's cube 25 days ago",
+      "shape": [
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, -0.32, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, -0.32, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, -0.32, -0.32]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, 0, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0, -0.32]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0.32, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, 0.32, -0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0.32, -0.32]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, -0.32, 0]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, -0.32, 0]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0, 0]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0, 0]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0.32, 0]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, 0.32, 0]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0.32, 0]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, -0.32, 0]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, -0.32, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, -0.32, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, -0.32, 0.32]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, 0, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0, 0.32]},
+        {"type": "box", "size": [0.3, 0.3, 0.3], "at": [-0.32, 0.32, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0, 0.32, 0.32]}, {"type": "box", "size": [0.3, 0.3, 0.3], "at": [0.32, 0.32, 0.32]}
+      ]
+    },
+    {
+      "caption": "He likes puzzles and building robots",
+      "shape": [
+        {"type": "box", "size": [1, 1, 0.28]},
+        {"type": "cylinder", "radius": 0.19, "height": 0.28, "rot": [90, 0, 0], "at": [0, 0.62, 0]},
+        {"type": "cylinder", "radius": 0.19, "height": 0.28, "rot": [90, 0, 0], "at": [0.62, 0, 0]}
+      ]
+    },
+    {
+      "caption": "An unassembled SO-101 robot arm is both",
+      "detail": "A puzzle to build, and a robot once it's built.",
+      "spin": false,
+      "shape": [
+        {"type": "cylinder", "radius": 0.42, "height": 0.16, "at": [0, -0.9, 0], "label": "base"},
+        {"type": "box", "size": [0.2, 0.95, 0.2], "at": [0.1, -0.35, 0], "rot": [0, 0, -12]},
+        {"type": "sphere", "radius": 0.15, "at": [0.2, 0.13, 0], "label": "servo"},
+        {"type": "box", "size": [0.18, 0.85, 0.18], "at": [0.58, 0.3, 0], "rot": [0, 0, -72]},
+        {"type": "sphere", "radius": 0.11, "at": [0.98, 0.43, 0]},
+        {"type": "box", "size": [0.3, 0.06, 0.12], "at": [1.15, 0.52, 0], "rot": [0, 0, 20], "label": "gripper"},
+        {"type": "box", "size": [0.3, 0.06, 0.12], "at": [1.15, 0.33, 0], "rot": [0, 0, -20]}
+      ]
+    },
+    {
+      "caption": "His birthday is Nov 14, so order by Nov 3",
+      "shape": [
+        {"type": "box", "size": [1, 0.8, 1]},
+        {"type": "box", "size": [1.12, 0.2, 1.12], "at": [0, 0.5, 0]},
+        {"type": "box", "size": [0.14, 0.84, 1.04], "tone": 0.4},
+        {"type": "box", "size": [1.04, 0.84, 0.14], "tone": 0.4},
+        {"type": "torus", "radius": 0.17, "tube": 0.05, "rot": [90, 30, 0], "at": [-0.17, 0.73, 0]},
+        {"type": "torus", "radius": 0.17, "tube": 0.05, "rot": [90, -30, 0], "at": [0.17, 0.73, 0]}
+      ]
+    }
+  ],
+  "summary": "**An SO-101 robot arm for Dev, about $175.** It's an open-source, 3D-printed arm he builds himself and then teaches to move on its own.\n\n- **SO-101 arm kit (~$130):** puzzles + robots in one box\n- **Magnetic speed cube (~$30):** he just solved a 5×5\n- **Shipping and wrap (~$15)**\n\nOrder by `Nov 3` so both arrive before Nov 14."
+}

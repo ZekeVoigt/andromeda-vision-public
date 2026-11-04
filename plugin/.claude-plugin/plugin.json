@@ -1,0 +1,8 @@
+{
+  "name": "see",
+  "version": "0.1.0",
+  "description": "Claude Code answers in 3D: halftone worlds toured stop by stop, live in a panel beside the chat.",
+  "author": { "name": "Zeke Voigt" },
+  "license": "MIT",
+  "keywords": ["visual", "3d", "explain", "vscode"]
+}

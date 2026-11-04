@@ -1,0 +1,16 @@
+{
+  "name": "andromeda-see",
+  "owner": {
+    "name": "Zeke Voigt"
+  },
+  "plugins": [
+    {
+      "name": "see",
+      "source": "./plugin",
+      "description": "Claude Code answers in 3D: halftone worlds toured stop by stop, live in a panel beside the chat."
+    }
+  ],
+  "metadata": {
+    "description": "See: Claude Code answers in 3D, live beside the chat."
+  }
+}
