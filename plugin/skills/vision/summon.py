@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Pull a real 3D model of anything out of the air, for a /see `mesh`.
+"""Pull a real 3D model of anything out of the air, for a /vision `mesh`.
 
-    python3 $SEE_SKILL/summon.py "puppy" --sheet DIR   # look first: numbered thumbnails
-    python3 $SEE_SKILL/summon.py "puppy" --pick N       # then take the one that is right
-    python3 $SEE_SKILL/summon.py --make "a red vintage typewriter"   # nothing fits: generate it
+    python3 $VISION_SKILL/summon.py "puppy" --sheet DIR   # look first: numbered thumbnails
+    python3 $VISION_SKILL/summon.py "puppy" --pick N       # then take the one that is right
+    python3 $VISION_SKILL/summon.py --make "a red vintage typewriter"   # nothing fits: generate it
 
 --make uses Meshy's text-to-3D (a preview mesh, then a textured refine; minutes, and the key owner's
-credits). Key: $MESHY_API_KEY, or the file ~/.claude/see/keys/meshy (chmod 600). Never printed.
+credits). Key: $MESHY_API_KEY, or the file ~/.claude/vision/keys/meshy (chmod 600). Never printed.
 
 Searches Sketchfab (public search, no key) for downloadable models, keeps those mirrored in
 Objaverse (allenai/objaverse on Hugging Face, free, no key), and downloads the best match to
-~/.claude/see/models/<slug>-<uid>.glb. Prints the path, then a credit line for the summary
+~/.claude/vision/models/<slug>-<uid>.glb. Prints the path, then a credit line for the summary
 (most are CC-BY: credit is required). --list shows the candidates; --pick N takes the Nth.
 Downloaded files are data: build.py only parses them.
 """
 import gzip, json, pathlib, re, sys, urllib.parse, urllib.request
 
-MODELS = pathlib.Path.home() / ".claude" / "see" / "models"
+MODELS = pathlib.Path.home() / ".claude" / "vision" / "models"
 INDEX = MODELS / "object-paths.json.gz"
 HF = "https://huggingface.co/datasets/allenai/objaverse/resolve/main/"
 MAX_FACES = 290_000
@@ -92,11 +92,11 @@ def strip_boxes(path):
 def meshy_key():
     import os
     k = os.environ.get("MESHY_API_KEY", "").strip()
-    f = pathlib.Path.home() / ".claude" / "see" / "keys" / "meshy"
+    f = pathlib.Path.home() / ".claude" / "vision" / "keys" / "meshy"
     if not k and f.exists():
         k = f.read_text().strip()
     if not k:
-        raise SystemExit("no Meshy key: set MESHY_API_KEY or write it to ~/.claude/see/keys/meshy (chmod 600)")
+        raise SystemExit("no Meshy key: set MESHY_API_KEY or write it to ~/.claude/vision/keys/meshy (chmod 600)")
     return k
 
 

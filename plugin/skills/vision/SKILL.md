@@ -1,15 +1,15 @@
 ---
-name: see
-description: Answer visually -- the user's default way of being told anything with structure (a plan, what changed, how something works, a result). One detailed 3D world of halftone dots the camera tours stop by stop, published to the See pane beside the chat.
+name: vision
+description: Answer visually -- the user's default way of being told anything with structure (a plan, what changed, how something works, a result). One detailed 3D world of halftone dots the camera tours stop by stop, published to the Vision pane beside the chat.
 argument-hint: "[what to explain or plan; empty = the thing just discussed]"
 ---
 
-# /see — explain it in 3D
+# /vision — explain it in 3D
 
-> `$SEE_SKILL` below is this skill's own folder: the base directory shown when the skill loads (the
+> `$VISION_SKILL` below is this skill's own folder: the base directory shown when the skill loads (the
 > plugin's SessionStart note names it too, with this session's id for `--session`).
 
-The user typed `/see` because something didn't land in words, or because they want to see a
+The user typed `/vision` because something didn't land in words, or because they want to see a
 whole plan, mechanism or design at once. Make it visible. The renderer turns what you build into
 a clean halftone model: flat shading bands, crisp outlines where parts meet, and thin paths as
 sharp strokes. Words in the world stay sharp at any zoom. Captions, points and a summary sit
@@ -24,13 +24,13 @@ is in their files, read enough of it first to be right.
 
 ## 0. Pull it out of the air (read first)
 
-The point of /see is that anything can appear, real and detailed: a puppy, a water bottle, a
+The point of /vision is that anything can appear, real and detailed: a puppy, a water bottle, a
 building. **Never build a real-world object out of primitives.** Summon a real model:
 
 ```bash
-python3 $SEE_SKILL/summon.py "puppy" --sheet <scratchpad>/sheet   # numbered thumbnails
+python3 $VISION_SKILL/summon.py "puppy" --sheet <scratchpad>/sheet   # numbered thumbnails
 # READ sheet.jpg and pick the one that truly is the thing (names lie: "furry puppy" was a T-posed character)
-python3 $SEE_SKILL/summon.py "puppy" --pick 2                     # -> .glb path + credit line
+python3 $VISION_SKILL/summon.py "puppy" --pick 2                     # -> .glb path + credit line
 ```
 
 Then a one-node world: `{"type": "mesh", "src": <path>, "size": 3}`, `"detail": "ultra"` (the finest
@@ -47,7 +47,7 @@ Never answer a simple question with a multi-stop tour.
 - Models keep their own colors and textures (build.py embeds them; the dots are tinted).
 - A mesh sits on its `at` by default (`"rest": false` centers it); build.py pushes overlapping models
   apart and prints `placement:` notes -- read them, and route any link it says runs through something.
-- Nothing fits? `summon.py --make "prompt"` (Meshy; the user's key in ~/.claude/see/keys/meshy).
+- Nothing fits? `summon.py --make "prompt"` (Meshy; the user's key in ~/.claude/vision/keys/meshy).
 - A click on the canvas names what's under it (the viewer's `seePick`): a model and where on it.
 - My cursor is the orange spark (me on the canvas). Point with `say.py ... --point '{"id": "<node id>",
   "rel": [x,y,z], "zoom": 0.55, "tag": "his face"}'`: it flies there, and `zoom` flies the camera in.
@@ -60,7 +60,7 @@ Never answer a simple question with a multi-stop tour.
 - Mixing models: give each one size by how it should read, not real scale; leave air between them.
 - Check every stop's capture; a capture run can die mid-way and leave old pictures behind.
 
-**The panel** (the See extension shows a session's channel, `~/.claude/see/sessions/<sid>/`):
+**The panel** (the Vision extension shows a session's channel, `~/.claude/vision/sessions/<sid>/`):
 - Always publish with `--session <sid>`: the plugin's SessionStart note names this session's id.
 - The world is framed centered with equal margins (top 60% of a tall panel: the skin's
   `window.SEE_PANE`). My words are one card in the margin; my mark rides its corner, the two move as
@@ -77,9 +77,9 @@ Never answer a simple question with a multi-stop tour.
 - While I work (between the user's line and Stop), the world blurs and my mark turns large in the
   middle with a thinking word -- nothing else. If the user is moving through the world it stays clear.
 - Light/dark: a round switch top right; dots and models are always the page's opposite.
-- Wait for panel lines with `run_in_background` on `$SEE_SKILL/wait.sh SID` (its exit wakes the
+- Wait for panel lines with `run_in_background` on `$VISION_SKILL/wait.sh SID` (its exit wakes the
   session; re-arm after each line).
-- Check what the user sees with a replica: `$SEE_SKILL/panel.py SID OUT.html` (the page + the
+- Check what the user sees with a replica: `$VISION_SKILL/panel.py SID OUT.html` (the page + the
   panel's skin + dock + the real talk.jsonl), then capture.mjs it wide (1200 800) and tall (700 900).
 
 **Talking on the canvas** (the panel is where I speak; the chat is where I work):
@@ -257,9 +257,9 @@ a short Python script that computes it and prints the scene JSON
 (`"smooth": false`), take real gradient steps for a descent path, use real counts.
 
 The references to meet:
-- `$SEE_SKILL/neural-network.py`: a world of 1,000+ parts with 12 stops, a neuron that
+- `$VISION_SKILL/neural-network.py`: a world of 1,000+ parts with 12 stops, a neuron that
   opens on zoom, notes, links, flows, and a loss surface.
-- `$SEE_SKILL/landing-page.json`: a plan built with `stack`, `grid`, `note`s, `link`s
+- `$VISION_SKILL/landing-page.json`: a plan built with `stack`, `grid`, `note`s, `link`s
   and a card that opens on zoom.
 - `showcase.json`: every shape in the steps form.
 
@@ -280,28 +280,28 @@ free model, download it into the scratchpad with `curl -L`, and use a `mesh`:
 ## 8. Build, look, fix
 
 ```bash
-python3 $SEE_SKILL/build.py <scene.json> [--out PAGE.html] [--no-open]
+python3 $VISION_SKILL/build.py <scene.json> [--out PAGE.html] [--no-open]
 ```
 
 It validates the scene and refuses it with every problem listed: unknown fields, ids used twice,
 and stops or links naming ids that don't exist. Fix them all and run it again. Then it embeds
-models and images, writes one self-contained page to `~/.claude/see/<time>-<title>.html`, opens
+models and images, writes one self-contained page to `~/.claude/vision/<time>-<title>.html`, opens
 it, and prints the path.
 
 **Look at it before handing it over:**
 
 ```bash
-SEE_SCRATCH=<scratchpad> node $SEE_SKILL/capture.mjs PAGE.html <scratchpad>/shot "1,2,3" 9 1500 950
+VISION_SCRATCH=<scratchpad> node $VISION_SKILL/capture.mjs PAGE.html <scratchpad>/shot "1,2,3" 9 1500 950
 ```
 
 That is real-time headless Chrome at 2x on a random port, one PNG per stop (allow ~9 s per stop
 for a max-detail world). Tile them with ffmpeg (`hstack`/`vstack`) and read the tile. Fix whatever
 is cramped, hidden, flooded orange or unreadable, rebuild, and look again.
 
-## 9. Publish to the See panel
+## 9. Publish to the Vision panel
 
 ```bash
-python3 $SEE_SKILL/publish.py <scene.json> --session <sid> [--say "one short line"] [--form image|steps|spec]
+python3 $VISION_SKILL/publish.py <scene.json> --session <sid> [--say "one short line"] [--form image|steps|spec]
 ```
 
 It builds the page, captures the first and last stop, and puts the world on this session's panel.
@@ -311,4 +311,4 @@ Read those pictures (they are the check of §8).
 
 A short list of the stops, then the page's path as a clickable link. The page is the explanation;
 do not repeat its summary in chat. If the user then asks about one stop, answer in words -- or,
-if they type `/see` again, make a new page.
+if they type `/vision` again, make a new page.

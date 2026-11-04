@@ -1,12 +1,12 @@
 // node capture.mjs PAGE.html OUTPREFIX "1,2,3" [wait seconds] [width] [height] [js to run before each shot]
-// Writes OUTPREFIX-N.png per step (2x). Chrome profiles go in $SEE_SCRATCH (default: this dir).
-// Real-time captures of a /see page in headless Chrome over CDP, each run on a random port.
+// Writes OUTPREFIX-N.png per step (2x). Chrome profiles go in $VISION_SCRATCH (default: this dir).
+// Real-time captures of a /vision page in headless Chrome over CDP, each run on a random port.
 import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 const [page, prefix, stepsArg = '1', waitArg = '6', wArg = '1500', hArg = '950', js = ''] = process.argv.slice(2);
 const port = 20000 + Math.floor(Math.random() * 30000);
-const scratch = process.env.SEE_SCRATCH || path.dirname(new URL(import.meta.url).pathname);
+const scratch = process.env.VISION_SCRATCH || path.dirname(new URL(import.meta.url).pathname);
 const udd = path.join(scratch, 'chrome-' + port);
 const chrome = spawn('/Applications/Google Chrome.app/Contents/MacOS/Google Chrome', [
   '--headless=new', `--remote-debugging-port=${port}`, `--user-data-dir=${udd}`, '--no-first-run', '--use-angle=metal',
@@ -38,14 +38,14 @@ try {
     await call('Page.navigate', { url: url + '#step=' + s });
     await sleep(+waitArg * 1000);
     if (js) { const r = await call('Runtime.evaluate', { expression: js, awaitPromise: true }); if (r.exceptionDetails) logs.push('JS: ' + JSON.stringify(r.exceptionDetails).slice(0, 300)); await sleep(+waitArg * 1000); }
-    if (process.env.SEE_CLICK) { // a real mouse click (x,y in CSS px), as a person would
-      const [cx, cy] = process.env.SEE_CLICK.split(',').map(Number);
+    if (process.env.VISION_CLICK) { // a real mouse click (x,y in CSS px), as a person would
+      const [cx, cy] = process.env.VISION_CLICK.split(',').map(Number);
       for (const type of ['mouseMoved', 'mousePressed', 'mouseReleased']) await call('Input.dispatchMouseEvent', { type, x: cx, y: cy, button: 'left', clickCount: 1 });
       await sleep(1500);
     }
     const t = await call('Runtime.evaluate', { expression: 'document.getElementById("title").textContent' });
-    let clip; // SEE_CLIP=1: the 3D view alone, not the page around it
-    if (process.env.SEE_CLIP) {
+    let clip; // VISION_CLIP=1: the 3D view alone, not the page around it
+    if (process.env.VISION_CLIP) {
       const r = await call('Runtime.evaluate', { expression: 'JSON.stringify(document.getElementById("viz").getBoundingClientRect())' });
       const b = JSON.parse(r.result.value); clip = { x: b.x, y: b.y, width: b.width, height: b.height, scale: 1 };
     }

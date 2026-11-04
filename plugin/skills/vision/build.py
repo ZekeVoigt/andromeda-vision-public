@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""Turn a /see scene (JSON) into one self-contained HTML page and open it.
+"""Turn a /vision scene (JSON) into one self-contained HTML page and open it.
 
-    python3 $SEE_SKILL/build.py SCENE.json [--out PAGE.html] [--no-open]
+    python3 $VISION_SKILL/build.py SCENE.json [--out PAGE.html] [--no-open]
 
 Model files (.obj .stl .glb .gltf) and images (.png .jpg .jpeg .gif .webp .svg) named by a
 shape's `src` are read relative to the scene file and embedded, so the page stays one file.
@@ -19,7 +19,7 @@ import subprocess
 import sys
 
 HERE = pathlib.Path(__file__).resolve().parent
-OUT_DIR = pathlib.Path.home() / ".claude" / "see"
+OUT_DIR = pathlib.Path.home() / ".claude" / "vision"
 
 SHAPES = {"box", "sphere", "dome", "cylinder", "cone", "capsule", "torus", "tube", "arrow", "curve",
           "extrude", "lathe", "surface", "text", "glyph", "image", "mesh", "note", "link"}
@@ -687,8 +687,8 @@ def main(argv):
               f"under {MAX_BYTES / 1e6:.0f} MB in all (simplify the model, shrink the image)", file=sys.stderr)
         return 1
     page = page.replace("/*__SCENE__*/null", blob, 1)
-    title = re.sub(r"[<>&]", "", str(scene.get("title", "See")))[:60] or "See"
-    page = page.replace("<title>See</title>", f"<title>{title}</title>", 1)
+    title = re.sub(r"[<>&]", "", str(scene.get("title", "Vision")))[:60] or "Vision"
+    page = page.replace("<title>Vision</title>", f"<title>{title}</title>", 1)
     out.write_text(page)
     print(out)
 

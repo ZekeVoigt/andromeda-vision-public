@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Say a line to the user through a session's See panel (the see-live VS Code extension).
+"""Say a line to the user through a session's Vision panel (the see-live VS Code extension).
 
-    python3 $SEE_SKILL/say.py --session SID "text"           # a reply
-    python3 $SEE_SKILL/say.py --session SID --status "text"  # what I'm doing; the next line replaces it
-    python3 $SEE_SKILL/say.py --session SID "Which one?" --buttons "Tower|House|Bridge"
-    python3 $SEE_SKILL/say.py --session SID "One thing first." --ask ask.json
+    python3 $VISION_SKILL/say.py --session SID "text"           # a reply
+    python3 $VISION_SKILL/say.py --session SID --status "text"  # what I'm doing; the next line replaces it
+    python3 $VISION_SKILL/say.py --session SID "Which one?" --buttons "Tower|House|Bridge"
+    python3 $VISION_SKILL/say.py --session SID "One thing first." --ask ask.json
 --point JSON: my cursor goes there: {"id": "part", "rel": [x,y,z] (-1..1 on it), "zoom": 0.5, "tag": "label"}
 Text: short sentences, "- " bullets on their own lines. Buttons send their label back as the user's line.
 --ask FILE: a question card, like Claude Code's clarify prompt:
   {"q": "Which way?", "multi": false, "options": [{"label": "A", "description": "...", "recommended": true}, ...]}
   The answer comes back as the user's line (labels joined by ", ", or their own "Other" text).
 
-The channel is ~/.claude/see/sessions/<SID>/talk.jsonl. The user's lines arrive there as
+The channel is ~/.claude/vision/sessions/<SID>/talk.jsonl. The user's lines arrive there as
 {"who": "you", ...}; watch it with `tail -n0 -F talk.jsonl | grep --line-buffered '"who": *"you"'`.
 """
 import datetime, json, pathlib, sys
 
-CHANNELS = pathlib.Path.home() / ".claude" / "see" / "sessions"
+CHANNELS = pathlib.Path.home() / ".claude" / "vision" / "sessions"
 
 
 def say(sid, text, **extra):

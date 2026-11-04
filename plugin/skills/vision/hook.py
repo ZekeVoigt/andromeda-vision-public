@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
-"""Claude Code hook: show a session's live work on its See canvas.
+"""Claude Code hook: show a session's live work on its Vision canvas.
 
 Wired by the plugin's hooks/hooks.json for SessionStart, UserPromptSubmit, PreToolUse, PostToolUse and Stop.
 On SessionStart it tells Claude its session id and this skill's folder (the panel is keyed by the id). It writes
-only when ~/.claude/see/sessions/<session_id>/ exists, so only sessions with a canvas are shown.
+only when ~/.claude/vision/sessions/<session_id>/ exists, so only sessions with a canvas are shown.
 Never blocks, prints only that SessionStart note: any failure is silent and the tool call goes ahead.
 """
 import datetime, json, os, pathlib, sys
 
-CHANNELS = pathlib.Path.home() / ".claude" / "see" / "sessions"
+CHANNELS = pathlib.Path.home() / ".claude" / "vision" / "sessions"
 
 
 def target(tool, inp):
@@ -71,7 +71,7 @@ def main():
         if ev == "SessionStart" and e.get("session_id"):
             here = pathlib.Path(__file__).resolve().parent
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext":
-                f"See: this session's id is {e['session_id']}; SEE_SKILL is {here}. Publish with --session {e['session_id']}."}}))
+                f"Vision: this session's id is {e['session_id']}; VISION_SKILL is {here}. Publish with --session {e['session_id']}."}}))
             return
         d = CHANNELS / str(e.get("session_id", ""))
         if not e.get("session_id") or not d.is_dir():

@@ -1,6 +1,6 @@
-# See for Claude Code
+# Vision for Claude Code
 
-The panel half of [See](https://github.com/ZekeVoigt/andromeda-see-public). When a Claude Code
+The panel half of [Vision](https://github.com/ZekeVoigt/andromeda-vision-public). When a Claude Code
 session publishes a world, it opens beside the chat:
 
 - a 3D halftone world, centered, that you walk with ← →
@@ -10,4 +10,4 @@ session publishes a world, it opens beside the chat:
 - light and dark
 
 Install the Claude Code plugin too (see the repo's README) — it publishes the worlds.
-Set `SEE_PANEL_DIR` or put a `skin.html` in `~/.claude/mods/see-talk/` to override the bundled skin.
+Set `VISION_PANEL_DIR` or put a `skin.html` in `~/.claude/mods/vision/` to override the bundled skin.

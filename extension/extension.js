@@ -1,4 +1,4 @@
-// See (talk): a session channel, ~/.claude/see/sessions/<sid>/, is how one Claude session talks to you:
+// Vision (talk): a session channel, ~/.claude/vision/sessions/<sid>/, is how one Claude session talks to you:
 //   now.json names its latest world, talk.jsonl is the conversation. The panel runs the world
 //   with a dock under it. What you type, or a click on a part, is appended to talk.jsonl as
 //   {"who": "you", ...}, and the session, which watches that file, answers through it.
@@ -7,11 +7,11 @@ const fs = require('fs')
 const os = require('os')
 const path = require('path')
 
-const SEE = path.join(os.homedir(), '.claude', 'see')
+const SEE = path.join(os.homedir(), '.claude', 'vision')
 const SESSIONS = path.join(SEE, 'sessions')
 // the dock and skin are read fresh from the mod's own folder each time a page loads, so a change to
 // either reaches the panel without reinstalling (the copies beside this file are the fallback)
-const MOD = path.join(os.homedir(), '.claude', 'mods', 'see-talk')
+const MOD = path.join(os.homedir(), '.claude', 'mods', 'vision')
 const fresh = name => { try { return fs.readFileSync(path.join(MOD, name), 'utf8') } catch { return fs.readFileSync(path.join(__dirname, name), 'utf8') } }
 
 const read = f => { try { return fs.readFileSync(f, 'utf8') } catch { return undefined } }
@@ -36,7 +36,7 @@ main{padding:40px 24px;color:var(--muted)}</style></head><body><main>No world ye
 function withDock(page, form) {
   let html = page
   { // always the latest skin: drop one baked in at publish time, then put the fresh one in
-    const s0 = html.indexOf('<!-- see-talk skin'), s1 = s0 < 0 ? -1 : html.indexOf('</style>', s0)
+    const s0 = html.indexOf('<!-- vision skin'), s1 = s0 < 0 ? -1 : html.indexOf('</style>', s0)
     if (s1 > 0) html = html.slice(0, s0) + html.slice(s1 + 8)
     const b0 = html.indexOf('<canvas id="see-bg">'), b1 = html.lastIndexOf('</body>')
     if (b0 > 0 && b1 > b0) html = html.slice(0, b0) + html.slice(b1)
@@ -53,7 +53,7 @@ const channels = new Map() // sid -> { panel, world, worldAt, talkAt, sent }
 
 function openChannel(sid, ch) {
   const panel = vscode.window.createWebviewPanel(
-    'seeTalk', 'See', { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
+    'vision', 'Vision', { viewColumn: vscode.ViewColumn.Beside, preserveFocus: true },
     { enableScripts: true, retainContextWhenHidden: true, localResourceRoots: [] })
   ch.panel = panel
   panel.onDidDispose(() => { ch.panel = undefined })
@@ -75,7 +75,7 @@ function loadWorld(sid, ch) {
   const now = json(path.join(SESSIONS, sid, 'now.json'))
   const page = now && now.html ? read(now.html) : undefined
   ch.world = now && now.html
-  ch.panel.title = `See · ${(now && now.title) || 'talk'}`
+  ch.panel.title = `Vision · ${(now && now.title) || 'talk'}`
   ch.sent = 0 // the reloaded page asks for the whole transcript
   ch.panel.webview.html = withDock(page || BLANK, now && now.stops && now.stops.length > 1 ? 'steps' : 'image')
   ch.skinAt = mtime(path.join(MOD, 'skin.html'))
@@ -119,7 +119,7 @@ function tick() {
 
 function activate(context) {
   context.subscriptions.push(
-    vscode.commands.registerCommand('seeTalk.open', async () => {
+    vscode.commands.registerCommand('vision.open', async () => {
       let sids = []
       try { sids = fs.readdirSync(SESSIONS).filter(s => !s.startsWith('.')) } catch { }
       sids.sort((a, b) => mtime(path.join(SESSIONS, b, 'talk.jsonl')) - mtime(path.join(SESSIONS, a, 'talk.jsonl')))

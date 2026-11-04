@@ -1,24 +1,24 @@
 #!/usr/bin/env python3
-"""$SEE_SKILL/panel.py SID OUT.html [PAGE.html]: the session panel as see-talk builds it, fed the real talk.jsonl."""
+"""$VISION_SKILL/panel.py SID OUT.html [PAGE.html]: the session panel as vision builds it, fed the real talk.jsonl."""
 import json, pathlib, sys
 sid, out = sys.argv[1], pathlib.Path(sys.argv[2])
 home = pathlib.Path.home() / ".claude"
 def panel_file(name):
-    """The See panel's own file (skin.html, dock.html): $SEE_PANEL_DIR, ~/.claude/mods/see-talk, or the
+    """The Vision panel's own file (skin.html, dock.html): $VISION_PANEL_DIR, ~/.claude/mods/vision, or the
     installed extension in VS Code, Cursor or Windsurf."""
     import glob, os
     home = pathlib.Path.home()
-    dirs = [os.environ.get("SEE_PANEL_DIR", ""), str(home / ".claude/mods/see-talk")]
+    dirs = [os.environ.get("VISION_PANEL_DIR", ""), str(home / ".claude/mods/vision")]
     for ed in (".vscode", ".cursor", ".windsurf", ".vscode-insiders"):
-        dirs += sorted(glob.glob(str(home / ed / "extensions" / "*.see-talk-*")), reverse=True)
+        dirs += sorted(glob.glob(str(home / ed / "extensions" / "*.vision-*")), reverse=True)
     for d in dirs:
         if d and (pathlib.Path(d) / name).exists():
             return pathlib.Path(d) / name
     return pathlib.Path("/nonexistent") / name
-d = home / "see/sessions" / sid
+d = home / "vision/sessions" / sid
 now = json.loads((d / "now.json").read_text())
 html = pathlib.Path(sys.argv[3] if len(sys.argv) > 3 else now["html"]).read_text()
-s0 = html.find("<!-- see-talk skin")
+s0 = html.find("<!-- vision skin")
 if s0 >= 0:
     s1 = html.find("</style>", s0); html = html[:s0] + html[s1 + 8:]
 b0, b1 = html.find('<canvas id="see-bg">'), html.rfind("</body>")

@@ -1,32 +1,32 @@
 #!/usr/bin/env python3
-"""Publish a /see scene to the control plane: the pane beside the chat (the see-pane mod).
+"""Publish a /vision scene to the control plane: the pane beside the chat (the see-pane mod).
 
-    python3 $SEE_SKILL/publish.py SCENE.json [--wait SECONDS] [--session SID [--say TEXT] [--form image|steps|spec]]
+    python3 $VISION_SKILL/publish.py SCENE.json [--wait SECONDS] [--session SID [--say TEXT] [--form image|steps|spec]]
 
-Builds the page into ~/.claude/see/, captures every stop's 3D view in headless Chrome, keeps each
-picture small enough for the pane, and writes ~/.claude/see/control/now.json, which the pane
+Builds the page into ~/.claude/vision/, captures every stop's 3D view in headless Chrome, keeps each
+picture small enough for the pane, and writes ~/.claude/vision/control/now.json, which the pane
 follows. Prints the page's path and the pictures' folder (look at them before replying).
 
-With --session SID the world goes to that session's channel instead (~/.claude/see/sessions/SID/,
+With --session SID the world goes to that session's channel instead (~/.claude/vision/sessions/SID/,
 shown live with a talk dock by the see-live VS Code extension), with a line in its talk.jsonl
 naming it (and --say TEXT beside it); the shared now.json is left alone. A session page is a bare
-canvas (see-talk's skin.html): --form image (one stop, the default for one), steps (the default for
+canvas (vision's skin.html): --form image (one stop, the default for one), steps (the default for
 more) or spec (steps with each stop's points).
 """
 import datetime, json, os, pathlib, re, shutil, subprocess, sys, tempfile
 
 HERE = pathlib.Path(__file__).resolve().parent
-SEE = pathlib.Path.home() / ".claude" / "see"
+SEE = pathlib.Path.home() / ".claude" / "vision"
 CONTROL = SEE / "control"
 
 def panel_file(name):
-    """The See panel's own file (skin.html, dock.html): $SEE_PANEL_DIR, ~/.claude/mods/see-talk, or the
+    """The Vision panel's own file (skin.html, dock.html): $VISION_PANEL_DIR, ~/.claude/mods/vision, or the
     installed extension in VS Code, Cursor or Windsurf."""
     import glob, os
     home = pathlib.Path.home()
-    dirs = [os.environ.get("SEE_PANEL_DIR", ""), str(home / ".claude/mods/see-talk")]
+    dirs = [os.environ.get("VISION_PANEL_DIR", ""), str(home / ".claude/mods/vision")]
     for ed in (".vscode", ".cursor", ".windsurf", ".vscode-insiders"):
-        dirs += sorted(glob.glob(str(home / ed / "extensions" / "*.see-talk-*")), reverse=True)
+        dirs += sorted(glob.glob(str(home / ed / "extensions" / "*.vision-*")), reverse=True)
     for d in dirs:
         if d and (pathlib.Path(d) / name).exists():
             return pathlib.Path(d) / name
@@ -66,7 +66,7 @@ def main(argv):
     subprocess.run([sys.executable, str(HERE / "build.py"), str(scene_path), "--out", str(page), "--no-open"], check=True,
                    stdout=subprocess.DEVNULL)
     skin = panel_file("skin.html")
-    if session and skin.exists():  # a session's pages: pictures first (see-talk)
+    if session and skin.exists():  # a session's pages: pictures first (vision)
         html = page.read_text()
         at = html.rfind("</body>")
         head, _, tail = skin.read_text().replace("{{FORM}}", form or "{{FORM}}").partition("<!--BODY-->")
@@ -76,7 +76,7 @@ def main(argv):
     shots = CONTROL / stamp
     shots.mkdir(parents=True, exist_ok=True)
     scratch = pathlib.Path(tempfile.mkdtemp(prefix="see-publish-"))
-    env = dict(os.environ, SEE_CLIP="1", SEE_SCRATCH=str(scratch))
+    env = dict(os.environ, VISION_CLIP="1", VISION_SCRATCH=str(scratch))
     # a session's canvas is live: capture only what I check (first and last stop), not every stop
     picks = [1, len(stops)] if session and len(stops) > 1 else [1] if session else list(range(1, len(stops) + 1))
     numbers = ",".join(str(i) for i in sorted(set(picks)))

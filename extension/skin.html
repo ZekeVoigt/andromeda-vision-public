@@ -1,4 +1,4 @@
-<!-- see-talk skin, put into a session's pages by publish.py --session. The panel is a canvas:
+<!-- vision skin, put into a session's pages by publish.py --session. The panel is a canvas:
      the world fills it on the plain background, dots drift behind it, and no chat.
      Form (publish.py --form, else 1 stop = image, more = steps):
        image  one picture, one quiet line, nothing to press
@@ -36,7 +36,7 @@ main > header .controls button { background: color-mix(in srgb, var(--bg) 70%, t
 #see-think { position: fixed; bottom: 26px; right: 22px; z-index: 4; width: 7px; height: 7px; border-radius: 50%; background: var(--accent); opacity: 0; transition: opacity .3s; }
 #see-think.on { opacity: 1; animation: see-breathe 1.4s ease-in-out infinite; }
 @keyframes see-breathe { 50% { transform: scale(1.8); opacity: .35; } }
-#see-talk { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; width: min(680px, calc(100% - 28px)); display: flex; flex-direction: column; gap: 8px; }
+#vision { position: fixed; left: 50%; bottom: 12px; transform: translateX(-50%); z-index: 5; width: min(680px, calc(100% - 28px)); display: flex; flex-direction: column; gap: 8px; }
 #see-say { font-size: 14.5px; line-height: 1.5; color: var(--ink); background: color-mix(in srgb, var(--bg) 82%, transparent); border-radius: 12px; padding: 8px 12px; backdrop-filter: blur(3px); }
 #see-say:empty { display: none; }
 #see-say p { margin: 0 0 4px; } #see-say p:last-child { margin: 0; }
@@ -209,7 +209,7 @@ body.cc-turn.cc-engaged #cc-load { opacity: 0; } /* you're moving through the wo
 :root[data-theme="light"] { --cc-shadow: 0 10px 30px rgba(0,0,0,.10), 0 1px 2px rgba(0,0,0,.06); }
 </style>
 <!--BODY-->
-<canvas id="see-bg"></canvas><!-- a marker only: where this skin's body starts, for see-talk and reskin.py -->
+<canvas id="see-bg"></canvas><!-- a marker only: where this skin's body starts, for vision and reskin.py -->
 <div id="see-cap"></div>
 <div id="cc-mark"><button id="cc-theme" title="Light / dark" aria-label="Switch light or dark"><svg viewBox="0 0 24 24" class="sun"><circle cx="12" cy="12" r="4.2"/><g><line x1="12" y1="2" x2="12" y2="4.6"/><line x1="12" y1="19.4" x2="12" y2="22"/><line x1="2" y1="12" x2="4.6" y2="12"/><line x1="19.4" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.7" y2="6.7"/><line x1="17.3" y1="17.3" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.7" y2="17.3"/><line x1="17.3" y1="6.7" x2="19.1" y2="4.9"/></g></svg><svg viewBox="0 0 24 24" class="moon"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button></div>
 <canvas id="cc-trail"></canvas>
@@ -222,7 +222,7 @@ body.cc-turn.cc-engaged #cc-load { opacity: 0; } /* you're moving through the wo
 <div id="cc-load"><svg viewBox="0 0 24 24"></svg><div class="v"></div></div>
 <div id="cc-feed"></div>
 <div id="cc-work"><canvas></canvas><div class="v"></div><div class="t"></div><div class="w"></div></div>
-<div id="see-talk"><div id="see-say"></div><div id="see-ask"></div><div id="see-btns"></div><form id="see-line"><textarea rows="1" placeholder="Message Claude…"></textarea></form></div>
+<div id="vision"><div id="see-say"></div><div id="see-ask"></div><div id="see-btns"></div><form id="see-line"><textarea rows="1" placeholder="Message Claude…"></textarea></form></div>
 <script>
 (() => {
   const FORM = '{{FORM}}';
@@ -370,7 +370,7 @@ document.getElementById('cc-theme').addEventListener('click', e => {
 });
 </script>
 <script>
-// Claude Code, live: the hooks (skills/see/hook.py) put each tool call on the channel as a status
+// Claude Code, live: the hooks (skills/vision/hook.py) put each tool call on the channel as a status
 // line [[act:{phase,tool,target,id,ok}]]. Here they become a feed of rows and, while busy, a scene
 // that does the work in dots: a hammer for commands, a pencil for edits, pages for reading ...
 (() => {
@@ -434,7 +434,7 @@ document.getElementById('cc-theme').addEventListener('click', e => {
     if (busy && !current && now - lastAt > 30000) busy = false;     // 30 s of nothing and no tool running: not working
     document.body.classList.toggle('cc-turn', busy);           // a turn is under way: the feed shows
     document.body.classList.toggle('cc-busy', !!current || performance.now() < lingerUntil); // a tool is running (or just ran): its scene and work show
-    const tk = document.getElementById('see-talk'), room = tk ? tk.getBoundingClientRect().top - 40 : innerHeight - 250; // stop above my words
+    const tk = document.getElementById('vision'), room = tk ? tk.getBoundingClientRect().top - 40 : innerHeight - 250; // stop above my words
     const fit = Math.max(2, Math.min(14, Math.floor((room - (you ? 60 : 24)) / 23)));
     feed.style.maxHeight = Math.max(60, room) + 'px';
     const shown = rows.slice(-fit), more = rows.length - shown.length;
