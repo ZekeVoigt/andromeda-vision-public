@@ -7,8 +7,9 @@
      A click on a part still asks Claude about it (through the hidden dock); a small switcher
      in the corner asks for the same answer in another form. -->
 <script>try { document.documentElement.dataset.theme = localStorage.getItem('see-theme') || 'dark'; } catch { document.documentElement.dataset.theme = 'dark'; }</script>
-<script>window.SEE_PANE = () => { // the world's share of the panel, always centered; my words take the margin beside it (or below a tall panel)
-  if ('{{FORM}}' === 'image') return 1; const W = innerWidth, a = W / innerHeight;
+<script>window.SEE_FORM = '{{FORM}}'; // filled in once by the panel (only this one placeholder)
+window.SEE_PANE = () => { // the world's share of the panel, always centered; my words take the margin beside it (or below a tall panel)
+  if (window.SEE_FORM === 'image') return 1; const W = innerWidth, a = W / innerHeight;
   if (a < 0.95) return { x: 0, w: 1, h: 0.6 };
   const side = Math.max(240, Math.min(400, W * 0.25)), x = Math.min(0.3, side / W);
   return { x, w: 1 - 2 * x, h: 1 }; };</script>
@@ -225,9 +226,10 @@ body.cc-turn.cc-engaged #cc-load { opacity: 0; } /* you're moving through the wo
 <div id="vision"><div id="see-say"></div><div id="see-ask"></div><div id="see-btns"></div><form id="see-line"><textarea rows="1" placeholder="Message Claude…"></textarea></form></div>
 <script>
 (() => {
-  const FORM = '{{FORM}}';
+  const FORM = window.SEE_FORM || '{{' + 'FORM}}';
   const steps = () => [...document.querySelectorAll('#steps > li[data-i]')];
-  const form = FORM.startsWith('{{') ? (steps().length > 1 ? 'steps' : 'image') : FORM;
+  const nStops = () => { try { return (S.stops || S.steps || []).length; } catch { return steps().length; } };
+  const form = FORM.startsWith('{{') ? (nStops() > 1 ? 'steps' : 'image') : FORM;
   document.body.classList.add('form-' + form);
 
   // the caption: the current stop's line (+ its sentence in steps, + points in a spec)

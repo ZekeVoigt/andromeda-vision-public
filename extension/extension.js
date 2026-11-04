@@ -40,7 +40,7 @@ function withDock(page, form) {
     if (s1 > 0) html = html.slice(0, s0) + html.slice(s1 + 8)
     const b0 = html.indexOf('<canvas id="see-bg">'), b1 = html.lastIndexOf('</body>')
     if (b0 > 0 && b1 > b0) html = html.slice(0, b0) + html.slice(b1)
-    const [head, tail] = fresh('skin.html').replace('{{FORM}}', form || '{{FORM}}').split('<!--BODY-->')
+    const [head, tail] = fresh('skin.html').split('{{FORM}}').join(form || '{{FORM}}').split('<!--BODY-->')
     const h = html.indexOf('</head>'); html = h < 0 ? head + html : html.slice(0, h) + head + html.slice(h)
     const b = html.lastIndexOf('</body>'); html = b < 0 ? html + tail : html.slice(0, b) + tail + html.slice(b)
   }
