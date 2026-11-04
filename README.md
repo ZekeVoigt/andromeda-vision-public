@@ -13,8 +13,10 @@ point at each part. Click any part to ask about it. Double-click empty space to 
 /plugin install vision@andromeda-vision
 ```
 
-**2. The panel** (VS Code, Cursor, Windsurf): install **Vision for Claude Code** from the
-VS Code Marketplace or Open VSX, or build it: `cd extension && npx @vscode/vsce package`.
+**2. The panel** (VS Code, Cursor, Windsurf): download `vision-0.3.0.vsix` from the
+[latest release](https://github.com/ZekeVoigt/andromeda-vision-public/releases/latest), then run
+**Extensions: Install from VSIX…** from the command palette. Or build it:
+`cd extension && npx @vscode/vsce package`.
 
 **3. Optional — make it the default.** Add to your `CLAUDE.md`:
 
