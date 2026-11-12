@@ -29,7 +29,8 @@ NUMS = {"radius", "radius2", "height", "tube", "tone", "round", "arc", "depth", 
 VECS = {"size", "at", "rot", "from", "to", "offset", "turn"}
 OTHER = {"rest", "type", "label", "scale", "open", "smooth", "closed", "points", "holes", "profile", "path",
          "x", "y", "z", "text", "char", "font", "src", "mask", "parts", "part", "axis", "twoSided",
-         "animate", "highlight", "style", "id", "zoom", "gap", "align", "weight", "head", "quiet"}
+         "animate", "highlight", "style", "id", "zoom", "gap", "align", "weight", "head", "quiet",
+         "file", "expand", "rel"}  # rel: [id, id] a relation (an import, a call): lit when either end is hovered or selected  # file: "path[:line]" a part opens in the editor; expand: like zoom, opened by a double-click
 KNOWN = NUMS | VECS | OTHER
 NEEDS = {"tube": ("from", "to"), "arrow": ("from", "to"), "curve": ("path",), "extrude": ("points",),
          "lathe": ("profile",), "surface": ("x", "y", "z"), "text": ("text",), "glyph": ("char",),
@@ -644,6 +645,54 @@ def arrange(scene):
     return notes
 
 
+def live_problems(scene, base):
+    """A live world's program: `live` is JS source, or {"file": "x.js"} (inlined here). Syntax-checked with node."""
+    live = scene.get("live")
+    if live is None:
+        return []
+    if isinstance(live, dict) and isinstance(live.get("file"), str):
+        f = (base / live["file"]).expanduser()
+        try:
+            live = scene["live"] = f.read_text()
+        except OSError as e:
+            return [f"live: cannot read {f}: {e}"]
+    if not isinstance(live, str) or not live.strip():
+        return ["`live` must be the program's JS source, or {\"file\": \"program.js\"}"]
+    import tempfile
+    with tempfile.NamedTemporaryFile("w", suffix=".js", delete=False) as t:
+        t.write("(function (see) {\n" + live + "\n});\n")
+    r = subprocess.run(["node", "--check", t.name], capture_output=True, text=True)
+    pathlib.Path(t.name).unlink(missing_ok=True)
+    if r.returncode != 0:
+        msg = (r.stderr or r.stdout).strip().splitlines()
+        return ["live: the program does not parse:\n    " + "\n    ".join(msg[:8])]
+    return []
+
+
+def prepare(src):
+    """A scene file -> (scene ready for the canvas: checked, models/pictures embedded, live program inlined), problems, placement notes."""
+    src = pathlib.Path(src)
+    try:
+        scene = json.loads(src.read_text())
+    except (OSError, json.JSONDecodeError) as e:
+        return None, [f"cannot read {src}: {e}"], []
+    def alias(nodes):  # `expand` is `zoom` by another name: the insides a double-click opens
+        for n in nodes or []:
+            if isinstance(n, dict):
+                if "expand" in n and "zoom" not in n:
+                    n["zoom"] = n.pop("expand")
+                alias(n.get("parts")); alias(n.get("zoom"))
+                if isinstance(n.get("part"), dict): alias([n["part"]])
+    alias(scene.get("world")) if isinstance(scene, dict) else None
+    for st in (scene.get("steps") or []) if isinstance(scene, dict) else []:
+        if isinstance(st, dict): alias(st.get("shape"))
+    bad = problems(scene) + live_problems(scene, src.resolve().parent)
+    if not bad:
+        bad = embed_assets(scene, src.resolve().parent)
+    notes = arrange(scene) if not bad else []
+    return scene, bad, notes
+
+
 def main(argv):
     args, i = [], 0
     while i < len(argv):
@@ -657,17 +706,9 @@ def main(argv):
         print(__doc__.strip(), file=sys.stderr)
         return 2
     src = pathlib.Path(args[0])
-    try:
-        scene = json.loads(src.read_text())
-    except (OSError, json.JSONDecodeError) as e:
-        print(f"cannot read {src}: {e}", file=sys.stderr)
-        return 1
-    bad = problems(scene)
-    if not bad:
-        bad = embed_assets(scene, src.resolve().parent)
-    if not bad:
-        for note in arrange(scene):
-            print("placement: " + note, file=sys.stderr)
+    scene, bad, notes = prepare(src)
+    for note in notes:
+        print("placement: " + note, file=sys.stderr)
     if bad:
         print("scene refused:\n  " + "\n  ".join(bad), file=sys.stderr)
         return 1
@@ -680,14 +721,28 @@ def main(argv):
         out = OUT_DIR / f"{stamp}-{slug}.html"
     out.parent.mkdir(parents=True, exist_ok=True)
 
-    page = (HERE / "viewer.html").read_text()
     blob = json.dumps(scene, ensure_ascii=False).replace("</", "<\\/")
+    if "--legacy" not in argv:  # the canvas: real meshes, a workspace that holds this scene as its first visual
+        if len(blob) > MAX_BYTES:
+            print(f"scene refused:\n  the page would be {len(blob) / 1e6:.1f} MB", file=sys.stderr)
+            return 1
+        sys.path.insert(0, str(HERE / "canvas"))
+        from pack import page as canvas_page
+        slug = re.sub(r"[^a-z0-9]+", "-", str(scene.get("title", "scene")).lower()).strip("-")[:48] or "scene"
+        html = canvas_page({"visuals": [{"key": slug, "scene": scene}]})
+        title = re.sub(r"[<>&]", "", str(scene.get("title", "Vision")))[:60] or "Vision"
+        out.write_text(html.replace("<title>Vision</title>", f"<title>{title}</title>", 1))
+        print(out)
+        if "--no-open" not in argv:
+            subprocess.run(["open", str(out)], check=False)
+        return 0
+    page = (HERE / "viewer.html").read_text()
     if len(blob) > MAX_BYTES:
         print(f"scene refused:\n  the page would be {len(blob) / 1e6:.1f} MB; keep models and images "
               f"under {MAX_BYTES / 1e6:.0f} MB in all (simplify the model, shrink the image)", file=sys.stderr)
         return 1
     page = page.replace("/*__SCENE__*/null", blob, 1)
-    title = re.sub(r"[<>&]", "", str(scene.get("title", "Vision")))[:60] or "Vision"
+    title = re.sub(r"[<>&]", "", str(scene.get("title", "See")))[:60] or "See"
     page = page.replace("<title>Vision</title>", f"<title>{title}</title>", 1)
     out.write_text(page)
     print(out)

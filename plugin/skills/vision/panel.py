@@ -1,34 +1,30 @@
 #!/usr/bin/env python3
-"""$VISION_SKILL/panel.py SID OUT.html [PAGE.html]: the session panel as vision builds it, fed the real talk.jsonl."""
-import json, pathlib, sys
+"""panel.py SID OUT.html: the Vision panel as the extension shows it, fed the session's real workspace and talk.jsonl.
+
+The canvas page with a stand-in for the VS Code host: on `ready` it sends the same `init` the extension sends
+(workspace.json with each visual's scene, the last 200 talk lines). window.HOST_SEND(lines) plays more lines as if
+they had just arrived; window.HOST_OUT holds what the canvas sent back. canvas.py look uses it.
+"""
+import json, os, pathlib, sys
+HERE = pathlib.Path(__file__).resolve().parent
 sid, out = sys.argv[1], pathlib.Path(sys.argv[2])
-home = pathlib.Path.home() / ".claude"
-def panel_file(name):
-    """The Vision panel's own file (skin.html, dock.html): $VISION_PANEL_DIR, ~/.claude/mods/vision, or the
-    installed extension in VS Code, Cursor or Windsurf."""
-    import glob, os
-    home = pathlib.Path.home()
-    dirs = [os.environ.get("VISION_PANEL_DIR", ""), str(home / ".claude/mods/vision")]
-    for ed in (".vscode", ".cursor", ".windsurf", ".vscode-insiders"):
-        dirs += sorted(glob.glob(str(home / ed / "extensions" / "*.vision-*")), reverse=True)
-    for d in dirs:
-        if d and (pathlib.Path(d) / name).exists():
-            return pathlib.Path(d) / name
-    return pathlib.Path("/nonexistent") / name
-d = home / "vision/sessions" / sid
-now = json.loads((d / "now.json").read_text())
-html = pathlib.Path(sys.argv[3] if len(sys.argv) > 3 else now["html"]).read_text()
-s0 = html.find("<!-- vision skin")
-if s0 >= 0:
-    s1 = html.find("</style>", s0); html = html[:s0] + html[s1 + 8:]
-b0, b1 = html.find('<canvas id="see-bg">'), html.rfind("</body>")
-if 0 < b0 < b1: html = html[:b0] + html[b1:]
-form = "steps" if len(now.get("stops", [])) > 1 else "image"
-head, _, tail = panel_file("skin.html").read_text().replace("{{FORM}}", form).partition("<!--BODY-->")
-h = html.find("</head>"); html = html[:h] + head + html[h:]
-b = html.rfind("</body>"); html = html[:b] + tail + html[b:]
-lines = [json.loads(l) for l in (d / "talk.jsonl").read_text().splitlines() if l.strip()]
-fake = "<script>window.acquireVsCodeApi=()=>({postMessage(m){if(m.type==='ready')setTimeout(()=>postMessage({type:'talk',lines:%s},'*'),50)}})</script>" % json.dumps(lines).replace("</", "<\\/").replace("\u2028", "\\u2028")
-dock = panel_file("dock.html").read_text()
-b = html.rfind("</body>"); html = html[:b] + fake + dock + html[b:]
-out.write_text(html); print(out)
+d = pathlib.Path(os.environ.get("SEE_HOME") or pathlib.Path.home() / ".claude" / "vision") / "sessions" / sid
+sys.path.insert(0, str(HERE / "canvas"))
+from pack import page
+def scene_of(item):
+    try: return dict(item, scene=json.loads(pathlib.Path(item["file"]).read_text()))
+    except Exception: return item
+ws = json.loads((d / "workspace.json").read_text()) if (d / "workspace.json").exists() else {"visuals": []}
+ws["visuals"] = [v for v in map(scene_of, ws.get("visuals", [])) if v.get("scene")]
+lines = [json.loads(l) for l in (d / "talk.jsonl").read_text().splitlines() if l.strip()][-200:] if (d / "talk.jsonl").exists() else []
+for l in lines:
+    for o in l.get("ops") or []:
+        if o.get("op") in ("add", "replace") and o.get("file"): o.update(scene_of(o))
+blob = json.dumps({"type": "init", "workspace": ws, "talk": lines}).replace("</", "<\\/").replace("\u2028", "\\u2028")
+fake = ("<script>window.HOST_OUT=[];window.acquireVsCodeApi=()=>({postMessage(m){window.HOST_OUT.push(m);"
+        "if(m.type==='ready')setTimeout(()=>postMessage(%s,'*'),30)}});"
+        "window.HOST_SEND=lines=>postMessage({type:'talk',lines},'*');</script>") % blob
+html = page(None)
+h = html.find("<script")
+out.write_text(html[:h] + fake + html[h:])
+print(out)

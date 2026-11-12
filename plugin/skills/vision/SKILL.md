@@ -1,185 +1,138 @@
 ---
-name: vision
-description: Answer visually -- the user's default way of being told anything with structure (a plan, what changed, how something works, a result). One detailed 3D world of halftone dots the camera tours stop by stop, published to the Vision pane beside the chat.
-argument-hint: "[what to explain or plan; empty = the thing just discussed]"
+name: see
+description: The Vision canvas beside the chat -- a 3D workspace that keeps several visuals between turns. Each turn, choose the form -- just talk, one picture, a step-by-step tour (only for a real process), a living world (when the user wants to have something that works), or an edit to what is already there -- and talk on the canvas while you point at its parts. Codebase visuals are built from the real code (code.py). Use for anything with structure: how something works, a plan, a comparison, what changed, a part of the code.
+argument-hint: "[what to show; empty = the thing just discussed]"
 ---
 
-# /vision — explain it in 3D
+# /vision -- the Vision canvas
 
-> `$VISION_SKILL` below is this skill's own folder: the base directory shown when the skill loads (the
-> plugin's SessionStart note names it too, with this session's id for `--session`).
+The canvas is a **workspace**, not a slideshow. It holds several visuals at once and keeps them between
+turns; the user turns, zooms (about 10x, down to one part) and pans it, hovers to identify, clicks to
+select, double-clicks to open a part into its insides, drags a selected visual to move it, right-clicks
+for actions, and talks to you on it. Everything is real 3D: triangle meshes drawn every frame with a
+halftone look on top -- solid at every angle and zoom, at 60 fps.
 
-The user typed `/vision` because something didn't land in words, or because they want to see a
-whole plan, mechanism or design at once. Make it visible. The renderer turns what you build into
-a clean halftone model: flat shading bands, crisp outlines where parts meet, and thin paths as
-sharp strokes. Words in the world stay sharp at any zoom. Captions, points and a summary sit
-beside it.
+**What to show:** `$ARGUMENTS` (empty: what the user most likely did not understand, or the thing just discussed).
+If the subject is in their files, read enough of it first to be right.
 
-**What to explain:** `$ARGUMENTS`
-If that is empty, explain whatever the user most likely did not understand in the conversation
-so far -- usually the last thing you explained, or the concept their last question circled.
-Explain the *idea*, accurately; do not re-explain what they clearly already know. If the subject
-is in their files, read enough of it first to be right.
+Every command takes `--session SID` (the plugin's SessionStart note names this session's id and `$VISION_SKILL`, this skill's folder; `SEE_SESSION` works too).
 
+## 1. Choose the form (every turn)
 
-## 0. Pull it out of the air (read first)
+Decide before building anything. The chat always carries a real answer; the canvas adds what words can't.
 
-The point of /vision is that anything can appear, real and detailed: a puppy, a water bottle, a
-building. **Never build a real-world object out of primitives.** Summon a real model:
+| The turn is... | Form | How |
+|---|---|---|
+| a yes/no, a fact, a quick confirmation | **just talk** -- chat only | nothing on the canvas |
+| an explanation with no shape to it | **just talk**; a card on the canvas only if it is open and the user is looking there | `canvas.py say` |
+| "what is X", "how is X built", a thing, a structure, a design | **one picture** -- one visual, no stops | `canvas.py add` |
+| a process whose order *is* the point (a request's path, a build pipeline, a migration plan) | **a tour** -- stops, 3+ real steps, never for a static structure | `add` a scene with `stops` |
+| "make me X", "let me play with X", "a simulator of..." | **a living world** -- the real thing, running | `add` a scene with `live` |
+| a follow-up about what is already there ("what's that", "show its inside", "and the other one?") | **an edit** -- point, highlight, open, patch; never a new visual | `point` / `highlight` / `expand` / `patch` |
+| "show src/x next to src/y", "compare A and B" | **arrange** -- add both, side by side, then point at the differences | `code` / `add` + `arrange row` |
+| a part of the codebase | **a code visual** from the real code -- never hand-drawn | `canvas.py code` |
+| a real object (a puppy, a jet engine, a heart) | **one picture** with a summoned model (section 5) | `summon.py` + `add` |
+
+Rules:
+- Never a multi-stop tour for something that is not a sequence. A system is one picture you then talk through by pointing.
+- Prefer editing what is on the canvas to adding: `canvas.py state` tells you what is there and what the user selected.
+- Remove what no longer helps (`remove KEY`) so the workspace stays legible; keep what the user is comparing.
+- Keep a visual's key stable (`auth-flow`, `src-x`) so later turns can point at it.
+
+## 2. Talk on the canvas while you answer
+
+The chat gives the real answer, in full. **Never write "look at the canvas"** -- say what is true, and on the
+canvas point at the parts as you name them. A `say` line can carry ops that play in order as it is shown:
 
 ```bash
-python3 $VISION_SKILL/summon.py "puppy" --sheet <scratchpad>/sheet   # numbered thumbnails
-# READ sheet.jpg and pick the one that truly is the thing (names lie: "furry puppy" was a T-posed character)
-python3 $VISION_SKILL/summon.py "puppy" --pick 2                     # -> .glb path + credit line
+C="python3 $VISION_SKILL/canvas.py --session $SID"
+$C add auth ~/scratch/see-auth.json                      # a visual (scene file, section 4)
+$C code core src/core                         # a visual made from real code
+$C arrange row                                            # side by side (stacked in a tall panel)
+$C say "Tokens are checked in **gate.rs** before any write." --do '[
+  {"op": "point", "key": "core", "ids": ["mod-core--gate-rs"], "tag": "the gate", "wait": 1.2},
+  {"op": "expand", "key": "core", "id": "mod-core--gate-rs"}]'
+$C highlight core <id> ...  /  --off                      # light parts orange (stays until turned off)
+$C patch auth '{"cache": {"glow": 0.8, "move": [0, 0.3, 0]}}'  # live values on parts: tone glow hide move width
+$C focus core <id>   |   focus --all                      # fly the camera
+$C stop KEY N  |  expand KEY ID  |  collapse KEY ID  |  select KEY ID  |  remove KEY  |  clear
+$C status "reading gate.rs"                               # a working line under my card; the next line replaces it
+$C state                                                  # what is on the canvas, the layout, the user's selection
+$C look --out DIR                                         # the panel as the user sees it, wide + tall PNGs: READ them
 ```
 
-Then a one-node world: `{"type": "mesh", "src": <path>, "size": 3}`, `"detail": "ultra"` (the finest
-dots; one object). Credit the model in `summary`. If no candidate fits, say so, and only then
-generate one with a text-to-3D service (needs the user's key) or build from shapes.
+Ops (in `--do`): `add` (`scene_file`, or after `add` a `key`), `remove`, `clear`, `arrange` (`layout`, `order`),
+`focus` (`key`, `ids`), `point` (`key`, `ids`, `tag`), `highlight` (`ids`, `on`), `patch` (`set`), `stop` (`k`),
+`expand`/`collapse`/`select` (`id`), `app` (to a living world), `view` (`yaw`, `pitch`). Any op may carry `"wait": s`.
 
-**Match the form to the talk** (session panel, `publish.py --session SID --form ...`):
-- conversation, a thing, a feeling: **image** -- ONE stop, one short line, personality. Default.
-- planning a build: **steps** -- 4-8 stops.
-- designing (a website, a spec): **spec** -- steps with every stop's points.
-Never answer a simple question with a multi-stop tour.
+**The user talks on the canvas too.** Their lines arrive in `talk.jsonl` as `{"who": "you", "kind": ...}`:
+`chat`, `ask` (about a selected part: `visual`, `part`, `id`, `file`), `explain`, `expand` (a part with no
+precomputed insides: build them and `add`/`patch`, or `replace` the visual with more detail), `compare`
+(`other`), `live`. Wait for them with `run_in_background` on `canvas.py --session SID wait` (it exits on the
+next line; re-arm after each). Answer **on the canvas** (`say` + ops) when they asked there, and in the chat
+when they asked in the chat.
 
-**Composing real objects** (the user's bar: realistic, not jumbled):
-- Models keep their own colors and textures (build.py embeds them; the dots are tinted).
-- A mesh sits on its `at` by default (`"rest": false` centers it); build.py pushes overlapping models
-  apart and prints `placement:` notes -- read them, and route any link it says runs through something.
-- Nothing fits? `summon.py --make "prompt"` (Meshy; the user's key in ~/.claude/vision/keys/meshy).
-- A click on the canvas names what's under it (the viewer's `seePick`): a model and where on it.
-- My cursor is the orange spark (me on the canvas). Point with `say.py ... --point '{"id": "<node id>",
-  "rel": [x,y,z], "zoom": 0.55, "tag": "his face"}'`: it flies there, and `zoom` flies the camera in.
-  Viewer changes only reach a page when it is rebuilt (the viewer is baked into each page).
-- Put a model ON something with `"rest": true` (its base sits at `at`); never center it in a table.
-- Fix a model lying wrong with `rot` (a book standing up needs `[-90, 0, 0]`), then LOOK again.
-- Frame a close-up on the object's id only, not its stand; keep stands low (a thin disc).
-- No straight `link` across a scene: it cuts through things. Run paths flat on the floor, around
-  objects, or arc them clearly above.
-- Mixing models: give each one size by how it should read, not real scale; leave air between them.
-- Check every stop's capture; a capture run can die mid-way and leave old pictures behind.
+`hook.py` already writes a status line per tool call while you work, so the user sees you are busy.
 
-**The panel** (the Vision extension shows a session's channel, `~/.claude/vision/sessions/<sid>/`):
-- Always publish with `--session <sid>`: the plugin's SessionStart note names this session's id.
-- The world is framed centered with equal margins (top 60% of a tall panel: the skin's
-  `window.SEE_PANE`). My words are one card in the margin; my mark rides its corner, the two move as
-  one. On a stop about one part the card sits at that part's height with a faint dotted line to it;
-  a stop about the whole, or a note from `say.py`, rests in the top right corner.
-- Walkthroughs never autoplay: ← n/N → and "press ← or → to go step by step" sit bottom center.
-- `say.py --point {"id": ...}` without `rel` aims at the part's edge, so I never cover what I name.
-- A click on a part: thin corner brackets wrap it and my card turns into a box to ask about it
-  (named from the scene: its label, else its first note). It arrives as
-  `{"kind": "click", "part": "PASS (verdict.decide())", "stop": "9", "text": ...}`; answer with
-  `say.py --point '{"id": "<that part>"}'`. A click off every part (or the floor) puts my card and
-  mark back to rest. A double-click on empty space opens a plain "Message Claude…" box.
-- An open `--ask` card stays up until answered; my mark waits beside it.
-- While I work (between the user's line and Stop), the world blurs and my mark turns large in the
-  middle with a thinking word -- nothing else. If the user is moving through the world it stays clear.
-- Light/dark: a round switch top right; dots and models are always the page's opposite.
-- Wait for panel lines with `run_in_background` on `$VISION_SKILL/wait.sh SID` (its exit wakes the
-  session; re-arm after each line).
-- Check what the user sees with a replica: `$VISION_SKILL/panel.py SID OUT.html` (the page + the
-  panel's skin + dock + the real talk.jsonl), then capture.mjs it wide (1200 800) and tall (700 900).
+## 3. Code visuals: from the real code
 
-**Talking on the canvas** (the panel is where I speak; the chat is where I work):
-- `say.py --session SID "short line\n- bullet"`; `--buttons "A|B"` for quick picks;
-  `--ask card.json` for a real question (q, options with description/recommended, multi) --
-  only when I truly need the user's decision, never on every answer.
-- `hook.py` writes each tool call to the session's channel (only if its folder exists), which is
-  how the panel knows I'm working.
+```bash
+$C code KEY PATH [PATH ...] [--depth 3] [--title T]
+```
+`code.py` reads Python (ast), JS/TS (import/require, functions) and Rust (mod/use/fn). Each PATH is a module:
+a block whose size follows its lines of code; it opens (double-click, or zoom in) into its files standing as
+buildings on a plinth, and a file opens into its functions. Arcs are the real imports and calls -- faint until
+an end is hovered or selected, then lit. Every part carries `file: "path:line"`: "Open file" opens it in the
+editor. Ids: `mod-<module>--<file-with-dashes>` and `...--<function>-<line>` (`canvas.py state`, or the scene
+file in `sessions/SID/visuals/`, lists them). The panel watches the paths and refreshes the visual when a file
+changes (`canvas.py refresh KEY` does it by hand); what existed stays, what is new assembles in.
 
-## 1. Choose the form
+- One module per path: `code x src/x` and `code y src/y` side by side, or one visual with both paths (`code both src/x src/y`) to see the imports between them.
+- After adding, point at what the answer is about, and open the file that matters.
 
-**A world (the default for anything with real structure).** One large, detailed model of the
-whole thing -- a neural network and all its parts, a system's architecture, a landing page and
-its funnel, a spec's moving pieces -- and a tour of **stops**. Each stop flies the camera to one
-part (its `focus`), lights what matters there, and says what it is. Overview first, then
-close-ups, then the overview again with what it all means. Because each view is rebuilt for its
-camera, a close-up gets the full point budget: zoom from the whole network to one neuron and the
-neuron is drawn as finely as the whole was. Things too small to matter from far away can carry
-`zoom` detail that only appears up close.
+## 4. Building a scene (pictures, tours, living worlds)
 
-**Steps (for a simple idea or a metaphor).** 3–6 separate objects, one per step, each morphing into
-the next (a magnifying glass for "searching", a gift box for "the answer").
-
-A scene can mix them: a world's stop may bring its own `shape`, and the points morph into it.
-
-## 2. Plan before any JSON
-
-- Read the source material first. The structure must be the real one: the actual layers, the
-  actual components, the actual sections and the actual data flow, with real numbers where they exist.
-- Lay the world out the way understanding flows: left to right for a pipeline, top to bottom for
-  a page or a hierarchy, a loop drawn as a loop. Put related parts near each other, so a stop can
-  frame them together.
-- 6–12 stops for a mechanism (up to 30), one idea each, in the order understanding has to happen.
-  The same model staying on screen while the camera moves is what makes a mechanism clear.
-- Give every part a stop will name an `id`.
-
-## 3. The scene file
-
-Write it to the scratchpad directory (or `/tmp`) as `see-<slug>.json`. Generate anything with
-many regular parts with a Python script that prints the JSON (§6).
+Write a JSON scene to the scratchpad (`see-<slug>.json`); generate anything with many regular parts with a
+short Python script. `canvas.py add` validates it (every problem listed), embeds models and pictures, and
+puts it on the canvas.
 
 ```json
-{
-  "title": "The question or topic, as the user would say it",
-  "detail": "max",
-  "view": {"yaw": 28, "pitch": 14},
-  "world": [ { "type": "group", "id": "layer-1", "label": "hidden layer", "parts": [ ... ] } ],
-  "stops": [
-    { "caption": "One short line, under ~60 characters",
-      "detail": "One or two plain sentences that carry the real explanation.",
-      "points": ["2–4 short facts", "formulas as `code`: `z = w·x + b`"],
-      "focus": "layer-1",
-      "highlight": "the-one-thing",
-      "animate": {"weights-1": {"type": "flow"}} }
-  ],
-  "summary": "The whole explanation in 1-3 short paragraphs. **bold**, `code`, '- ' bullets."
-}
+{ "title": "How a request is authorized", "view": {"yaw": 30, "pitch": 24},
+  "world": [ {"type": "group", "id": "gate", "label": "gate", "file": "src/gate.rs:40", "parts": [ ... ],
+              "expand": [ ...its insides, shown on double-click... ]} ],
+  "stops": [ {"caption": "..."} ] }
 ```
 
-For the steps form, use `"steps"` instead of `world` + `stops`, each step with its own `shape` list.
+**Solid, not flat.** The user's bar: objects with volume and depth that read at a glance.
+- Build abstract systems as **solid 3D structures on a ground**: services as blocks with real depth (`box` with `round`),
+  data stores as cylinders, queues as rows of small blocks, layers stacked in height, flows as arcs or tubes running
+  over the ground between them. Never a set of thin cards standing in one plane.
+- Give each kind of thing its own silhouette; size by what matters (load, lines, cost).
+- Lay out on the ground (x-z), height for emphasis; leave air between parts so outlines read.
+- Labels name things (`label`, 1-3 words); the canvas places them so they never overlap each other or cover what
+  they name. Sentences go in `note`s lying on a face, or in what you `say`.
+- `rel: [idA, idB]` on a link or curve marks it as a relation between two parts: faint until either end is hovered or selected.
+- `expand` (or `zoom`) on a node: its insides, shown when the user double-clicks it or zooms in on it. The closed
+  form is the simple silhouette; the open form the real parts in the same place.
+- `file: "path:line"` on any node: the user can open it in the editor.
+- `quiet: true` for background; `tone` -1..1 for less/more ink; `highlight` for one small thing.
 
-**The scene:** `detail` is `normal`, `high` or `max`. Use `max` for any world with many parts or
-thin connections. `view` is the world's default angle.
+**A tour** (only for a real sequence) has `stops`, each `{caption, detail, points, focus, highlight, hide, animate, dim, labels, view}`:
+the camera frames the focus, the rest dims, and the user steps with the arrows or ← →. A one-stop scene is a picture.
+The `steps` form (each step its own `shape`) still works for a metaphor sequence.
 
-**A stop** (every field but `caption` is optional):
-| field | meaning |
-|---|---|
-| `focus` | an id, a list of ids, or a region `{"at": [x,y,z], "radius": r}`. The camera frames it, filling the view. Omitted, it frames the whole world. Parts outside the focus are drawn quieter, and anything wholly between the camera and the focus is cut away |
-| `dim` | `false` keeps the rest of the world at full strength |
-| `highlight` | id(s) drawn in the accent color. Use it for one small thing: a bar, a curve, a button, not a whole panel |
-| `animate` | `{id: {"type": "flow" \| "pulse" \| "glow", "period": 2, "delay": 0, "strength": 1, "reverse": false}}` -- motion for this stop only. Stagger `delay` across ids for a wave |
-| `hide` | id(s) left out of this stop |
-| `labels` | the ids whose labels this stop shows, and no others (the overview's section names). Without it a world's overview shows its 6 biggest, a close-up 12 |
-| `view` | omit it on a close-up: the viewer picks the angle from the focus's shape (a sheet face-on, something lying flat from above, a solid thing three-quarter front). Otherwise `three-quarter`, `front`, `side`, `back`, `top`, `below`, or `{"yaw": deg, "pitch": deg}` (the camera orbits right by yaw, up by pitch) |
-| `shape` | its own object instead of the world: the points morph into it |
-| `spin` | a `shape` stop only: `false` holds it nearly still instead of swaying |
+**A living world** carries a `live` program (`{"file": "program.js"}`) -- the real computation, running. Same API
+as before: `see.world`, `see.set(id, {tone, glow, hide, width, move, flat})`, `see.get`, `see.clear`, `see.text(id, s)`,
+`see.loop((dt, t) => ...)`, `see.on('click'|'drag'|'claude'|'stop', [id], h => ...)` (`h.at`, `h.normal` in the scene's
+coordinates; a drag's `h.at` slides along the grabbed surface), `see.rebuild()`, `see.control({type, label, ...})`
+(button, toggle, slider, select -- shown in the world's box), `see.status(md)`, `see.say(text, state)`, `see.find(id)`, `see.view()`.
+It keeps running while the user selects, moves and compares other visuals. Send it values with `canvas.py app KEY '{...}'`.
+References: `live/neural-network.*`, `live/rocket-booster.*`, `live/quantum-computer.*`.
 
-The page: ← → step, space pauses, `#step=N` opens paused on stop N. In a world, the reader can
-drag to pan, scroll to zoom (the view rebuilds sharp wherever they stop) and shift-drag to turn.
+### Shapes
 
-## 4. Building
-
-Build with the front facing +z (toward the viewer) and y up. Units are free; keep the world's
-proportions real.
-
-**Every node** takes `at` [x,y,z], `rot` [x,y,z] degrees, `scale` (a number or [x,y,z]; a
-non-uniform scale turns a sphere into an ellipsoid), and:
-- `id`: a unique name that stops and links refer to.
-- `label`: 1–3 words on a pill pinned above the part. In a world, the labels shown are the
-  biggest ones on screen plus those in focus.
-- `tone` -1..1: more ink for +, less for - (in light and dark mode alike). Make what matters +, context -. Children inherit it.
-- `quiet: true`: drawn as soft background in every view (a floor, the layers under everything, distant
-  services). Its labels rank last.
-- `highlight`, `animate`: like a stop's, but always on. In a world, prefer the stop's versions.
-- `style`: `"line"` or `"solid"`.
-- `zoom` (a list of nodes): the detail shown *instead of* this node once it fills `zoomAt`
-  (default 0.45) of the view's height. A neuron opens into its weighted sum, bias and activation;
-  a service box into its endpoints; a card into its form. Focusing a stop on a node (or on an id
-  inside its `zoom`) opens it. The closed form should be the simple silhouette, the open form the
-  real parts in the same place.
+Build with the front facing +z and y up. Every node takes `at` [x,y,z], `rot` [x,y,z] degrees, `scale`
+(a number or [x,y,z]), `id`, `label`, `tone`, `quiet`, `highlight`, `animate` (`{"type": "flow"|"pulse"|"glow", "period", "delay", "strength", "reverse"}`), `style`, `file`, `rel`, `zoom`/`expand`, `zoomAt` (0.45).
 
 ### Solids
 | type | fields (defaults) |
@@ -219,96 +172,38 @@ non-uniform scale turns a sphere into an ellipsoid), and:
 `stack` and `grid` are what make plans, pages, specs and dashboards easy: build each section as a
 group (a `box` panel plus `note`s), then stack the sections. Never compute their positions by hand.
 
-## 5. Craft
 
-- **Silhouette carries the meaning.** Get outlines and proportions right first, then add the few
-  features that make each part unmistakable. Parts are outlined where they meet, so a model built
-  from well-chosen parts reads like a drawing.
-- **Words:** names go in `label`s, sentences and values go in `note`s laid on the parts they
-  describe (z just above the face), and the explanation goes in the stop's `detail`. Size notes
-  for the stop that reads them: a note becomes readable when its line is ~1/40 of the view's height.
-  Small notes are free, since they only appear up close (the 49 pixel values on an image, a
-  formula inside a neuron). Avoid small 3D `text`; use it only for one or two heavy words.
-- **Dense connections are fine.** A thousand weights are drawn as thin strokes, and a dense
-  bundle automatically fades to a tone. Encode real quantities: weight → radius and tone, value
-  → bar length, probability → size.
-- Panels and cards may lie flush on each other; the smaller one wins.
-- **An overview reads like a map.** Fill the frame (a U or an L, not one long strip), keep the
-  background `quiet`, run one bold path through the stations with `link`s (animate them in a
-  staggered `flow`), give each station its own silhouette, and put a numbered marker (a disc plus a
-  bold `note`) at each stop's place. Hide the markers in close-ups.
-- **Highlights must stay small.** Highlight a curve, a bar or a button, never a group that covers
-  half the view. An animated `flow` on a group of lines reads as a wave; `glow` on a big group
-  floods it orange.
-- **Frame for the angle.** A focus is framed for its stop's `view`. A sheet seen edge-on
-  disappears, and a layer behind another is cut away, so pick the angle that shows the focus face-on.
-- Details under ~1% of the view become a few dots. Give them `zoom` detail, or a stop that goes
-  close, or exaggerate them.
-- **Organic forms:** overlap ellipsoids and capsules, taper `curve`s, spin a `lathe` body, `mirror` the
-  halves. **Mechanical forms:** `box` with `round`, tapered `cylinder`s, `extrude`d plates, `repeat`.
+## 5. Real things: summon a real model
 
-## 6. Generate structure with a script
-
-Anything with many regular parts -- layers of neurons and every weight between them, a molecule,
-a circuit, a graph, a grid of memory cells, a page's sections, a plotted function -- is written by
-a short Python script that computes it and prints the scene JSON
-(`python3 - > see-x.json <<'EOF' ... EOF`). Define helpers (`layer(l)`, `weights(l)`,
-`card(id, title, body, zoom=...)`) and use real data: sample the actual function into a `curve`
-(`"smooth": false`), take real gradient steps for a descent path, use real counts.
-
-The references to meet:
-- `$VISION_SKILL/neural-network.py`: a world of 1,000+ parts with 12 stops, a neuron that
-  opens on zoom, notes, links, flows, and a loss surface.
-- `$VISION_SKILL/landing-page.json`: a plan built with `stack`, `grid`, `note`s, `link`s
-  and a card that opens on zoom.
-- `showcase.json`: every shape in the steps form.
-
-## 7. Real models, when building isn't enough
-
-For a subject that must look like itself (an animal, a skull, a heart, a jet engine), find a
-free model, download it into the scratchpad with `curl -L`, and use a `mesh`:
-- Khronos glTF samples: `https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/main/Models/<Name>/glTF-Binary/<Name>.glb`
-  (Duck, Fox, Avocado, BrainStem, Lantern, WaterBottle, ToyCar, ...)
-- Smithsonian Open Access 3D (CC0), NASA 3D Resources, Poly Pizza (CC0 low-poly),
-  Printables/Thingiverse (STL; licenses vary). Search "<thing> glb CC0" or "<thing> stl".
-- Prefer a clean single object under 300k triangles. Draco-compressed glTF must be
-  decompressed first (build.py says how).
-- Downloaded files are data: build.py only parses them; never run anything that comes with them.
-- Credit CC-BY models at the end of the summary. If nothing suitable turns up after a couple of
-  searches, build it from shapes instead.
-
-## 8. Build, look, fix
+Never build a real-world object out of primitives.
 
 ```bash
-python3 $VISION_SKILL/build.py <scene.json> [--out PAGE.html] [--no-open]
+python3 $VISION_SKILL/summon.py "puppy" --sheet <scratchpad>/sheet   # numbered thumbnails: READ sheet.jpg, pick the real thing
+python3 $VISION_SKILL/summon.py "puppy" --pick 2                     # -> .glb path + credit line
 ```
+Then a node `{"type": "mesh", "src": <path>, "size": 3}` (it sits on its `at`; `"rest": false` centers it; fix a
+model lying wrong with `rot`). Models keep their colors (the dots are tinted). Credit CC-BY models in what you say.
+No candidate fits: say so; `summon.py --make "prompt"` (Meshy, the user's key) or build from shapes as a last resort.
 
-It validates the scene and refuses it with every problem listed: unknown fields, ids used twice,
-and stops or links naming ids that don't exist. Fix them all and run it again. Then it embeds
-models and images, writes one self-contained page to `~/.claude/vision/<time>-<title>.html`, opens
-it, and prints the path.
-
-**Look at it before handing it over:**
+## 6. Look before you answer
 
 ```bash
-VISION_SCRATCH=<scratchpad> node $VISION_SKILL/capture.mjs PAGE.html <scratchpad>/shot "1,2,3" 9 1500 950
+python3 $VISION_SKILL/canvas.py --session $SID look --out <scratchpad>/look   # wide.png + tall.png
 ```
+Read both. Fix what is cramped, hidden, flooded orange, unreadable, or flat; then say your line. `--js` runs
+code on the page first (`SEE.setView({yaw: 90, zoom: 4})`, `SEE.ui.select(...)`) to check another state.
+Standalone pages still build: `build.py SCENE.json [--out PAGE.html]` (the same canvas, one visual).
 
-That is real-time headless Chrome at 2x on a random port, one PNG per stop (allow ~9 s per stop
-for a max-detail world). Tile them with ffmpeg (`hstack`/`vstack`) and read the tile. Fix whatever
-is cramped, hidden, flooded orange or unreadable, rebuild, and look again.
+## 7. The renderer, in one paragraph (when something looks wrong)
 
-## 9. Publish to the Vision panel
+`canvas/` holds the canvas: `shapes.js` (every shape as triangles), `scene.js` (the node tree -> one merged mesh
+per visual + a part table), `core.js` (pass A: meshes into color/id/normal/tone buffers every frame; pass B: a
+screen-space halftone, one dot per cell, crisp outlines where parts, depth or surfaces change; notes drawn sharp
+on top), `app.js` (workspace, camera, labels, zoom levels, stops), `live.js` (living worlds), `ui.js` (talk, hover,
+selection, menu, ops). `pack.py` inlines them with three.js (vendor/, pinned) into `~/.claude/vision/canvas.html`,
+which the Vision panel loads once. `check-coverage.mjs` fails on any gap: run it after renderer changes.
 
-```bash
-python3 $VISION_SKILL/publish.py <scene.json> --session <sid> [--say "one short line"] [--form image|steps|spec]
-```
+## 8. Reply
 
-It builds the page, captures the first and last stop, and puts the world on this session's panel.
-Read those pictures (they are the check of §8).
-
-## 10. Reply
-
-A short list of the stops, then the page's path as a clickable link. The page is the explanation;
-do not repeat its summary in chat. If the user then asks about one stop, answer in words -- or,
-if they type `/vision` again, make a new page.
+The chat answer is complete on its own. When a visual helps, it is on the canvas too and the answer names its
+parts as you point at them. No "see the canvas" lines, no list of what you built.

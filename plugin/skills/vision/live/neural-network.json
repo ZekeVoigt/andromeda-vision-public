@@ -1,0 +1,77 @@
+{
+ "title": "A neural network you can train",
+ "detail": "max",
+ "view": {
+  "yaw": 12,
+  "pitch": 8
+ },
+ "live": {
+  "file": "neural-network.js"
+ },
+ "world": [
+  {
+   "type": "group",
+   "id": "wires",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "field",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "loss",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ]
+    }
+   ]
+  }
+ ],
+ "stops": [
+  {
+   "caption": "A real neural network, training now",
+   "detail": "Every card is a neuron, drawn as what it responds to. Lines are weights: thick is strong, orange is positive. The big field is what it believes everywhere.",
+   "points": [
+    "Drag on the field to add points",
+    "Click a neuron to remove it, a + to add one",
+    "Train, data, inputs and layers are below"
+   ]
+  },
+  {
+   "caption": "What it believes, and what it learns from",
+   "focus": "field",
+   "detail": "Orange dots mean it thinks orange; bigger means surer. The round dots are the data. Drop your own and watch the boundary bend to fit them."
+  },
+  {
+   "caption": "The weights, changing as it learns",
+   "focus": "wires",
+   "detail": "Each line is one weight. Training thickens the ones that help and thins the rest."
+  }
+ ],
+ "summary": "A small multilayer perceptron trained by backpropagation, live in the page."
+}

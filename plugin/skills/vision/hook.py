@@ -71,7 +71,7 @@ def main():
         if ev == "SessionStart" and e.get("session_id"):
             here = pathlib.Path(__file__).resolve().parent
             print(json.dumps({"hookSpecificOutput": {"hookEventName": "SessionStart", "additionalContext":
-                f"Vision: this session's id is {e['session_id']}; VISION_SKILL is {here}. Publish with --session {e['session_id']}."}}))
+                f"Vision: this session's id is {e['session_id']}; VISION_SKILL is {here}. Use canvas.py --session {e['session_id']} (add, code, say, point, look)."}}))
             return
         d = CHANNELS / str(e.get("session_id", ""))
         if not e.get("session_id") or not d.is_dir():

@@ -1,0 +1,418 @@
+{
+ "title": "A rocket booster you can fly",
+ "detail": "max",
+ "view": {
+  "yaw": 10,
+  "pitch": 6
+ },
+ "live": {
+  "file": "rocket-booster.js"
+ },
+ "world": [
+  {
+   "type": "group",
+   "id": "lox",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "rp1",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.3,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "engines",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.6,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "pump",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.8999999999999999,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "chamber",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      1.2,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "nozzle",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      1.5,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "plume",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      1.7999999999999998,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "readout",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      2.1,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "engine-detail",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      2.4,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "gauge",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      2.6999999999999997,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "gas",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      3.0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "n-chamber",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      3.3,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "n-throat",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      3.5999999999999996,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "n-exit",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      3.9,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "n-pump",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      4.2,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "n-plume",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      4.5,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "stops": [
+  {
+   "caption": "A real booster, flying on real physics",
+   "detail": "It lights a moment after it appears and climbs on its own thrust. The tanks drain as it burns, the pad falls away, and the plume widens as the air thins.",
+   "points": [
+    "Click an engine to shut it down",
+    "Throttle and time speed are below",
+    "← → walks through how it works"
+   ]
+  },
+  {
+   "caption": "Two tanks: oxygen on top, kerosene below",
+   "focus": [
+    "lox",
+    "rp1"
+   ],
+   "detail": "It carries its own oxygen, so it can burn where there is no air. About 2.45 kg of liquid oxygen burns with each kg of RP-1 kerosene; 400 tonnes of the two are nearly 80% of the rocket.",
+   "points": [
+    "LOX at −183 °C, 1.14 kg per litre",
+    "a pipe (the downcomer) runs LOX down through the kerosene tank",
+    "watch the levels drop as it burns"
+   ]
+  },
+  {
+   "caption": "Nine engines share the work",
+   "focus": "engines",
+   "detail": "Each makes about 0.85 MN at sea level, rising to 0.91 MN in vacuum. Click one to shut it down: thrust drops by a ninth, the plume shortens, and the climb slows -- but it can still make it.",
+   "points": [
+    "engine-out tolerance is why boosters cluster engines",
+    "they throttle down to 40% to ease off through max-Q"
+   ]
+  },
+  {
+   "caption": "The turbopump: a jet engine just to move fuel",
+   "focus": [
+    "pump",
+    "n-pump"
+   ],
+   "detail": "Propellant has to enter the chamber at over 100 bar, faster than tank pressure can push it. A gas generator burns a little of it to spin a turbine at ~36,000 rpm, which drives the oxygen and fuel pumps on the same shaft.",
+   "points": [
+    "gas-generator cycle: the turbine exhaust is dumped overboard (the small side plume)",
+    "a few % of the flow is spent this way"
+   ]
+  },
+  {
+   "caption": "Injector and chamber: where it burns",
+   "focus": [
+    "chamber",
+    "gas",
+    "n-chamber"
+   ],
+   "detail": "The injector sprays oxygen and kerosene into the chamber in fine jets that mix and burn at ~3,600 K and ~97 bar. The kerosene first runs through channels in the nozzle walls to cool them -- that is why the walls glow.",
+   "points": [
+    "the gas here moves slowly, Mach ~0.1",
+    "regenerative cooling: fuel takes the heat back in"
+   ]
+  },
+  {
+   "caption": "The nozzle turns heat into speed",
+   "focus": [
+    "nozzle",
+    "gas",
+    "n-throat",
+    "n-exit"
+   ],
+   "detail": "The chamber squeezes the gas through a narrow throat, where it reaches exactly the speed of sound, then lets it expand in the bell. Expanding, it cools and speeds up to Mach ~3.5 -- about 3 km/s. Watch the particles accelerate past the throat.",
+   "points": [
+    "`A/A* = (1/M)·[(2/(γ+1))(1+(γ−1)/2·M²)]^((γ+1)/(2(γ−1)))`",
+    "exit area 16× the throat"
+   ]
+  },
+  {
+   "caption": "The plume changes with height",
+   "focus": [
+    "plume",
+    "n-plume"
+   ],
+   "detail": "At sea level the air pushes harder than the exhaust, squeezing the plume narrow into shock diamonds. Higher up the exhaust's own pressure wins and the plume balloons outward -- and the same engine makes more thrust.",
+   "points": [
+    "`F = ṁ·vₑ + (pₑ − pₐ)·Aₑ`",
+    "lower outside pressure pₐ → more thrust"
+   ]
+  },
+  {
+   "caption": "What it all adds up to",
+   "focus": [
+    "readout",
+    "gauge"
+   ],
+   "detail": "Thrust fights gravity and drag while the rocket gets lighter every second, so it accelerates harder as it climbs. Drag peaks at max-Q around a minute in, then the air thins away. When the propellant runs out (main engine cutoff) it coasts up to its apogee.",
+   "points": [
+    "Tsiolkovsky: `Δv = Isp·g₀·ln(m₀/m_f)`",
+    "Isp ≈ 282 s at sea level, 311 s in vacuum"
+   ]
+  },
+  {
+   "caption": "Fly it again",
+   "detail": "Reset and launch: try 40% throttle, three engines out, or 20× time to watch the whole burn to apogee."
+  }
+ ],
+ "summary": "A liquid-fuelled booster with nine engines on a gas-generator cycle, flown by a vertical-flight simulation: thrust from mass flow and exhaust pressure against falling air pressure, drag, and gravity, with propellant drained at the real mass flow."
+}

@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""Say a line to the user through a session's Vision panel (the see-live VS Code extension).
+"""Say a line to the user through a session's See panel (the see-live VS Code extension).
 
     python3 $VISION_SKILL/say.py --session SID "text"           # a reply
     python3 $VISION_SKILL/say.py --session SID --status "text"  # what I'm doing; the next line replaces it
     python3 $VISION_SKILL/say.py --session SID "Which one?" --buttons "Tower|House|Bridge"
     python3 $VISION_SKILL/say.py --session SID "One thing first." --ask ask.json
+--app JSON: handed to a living world's program (see.on('claude', ...)), e.g. '{"set": {"lr": 0.3}, "train": true}'
 --point JSON: my cursor goes there: {"id": "part", "rel": [x,y,z] (-1..1 on it), "zoom": 0.5, "tag": "label"}
 Text: short sentences, "- " bullets on their own lines. Buttons send their label back as the user's line.
 --ask FILE: a question card, like Claude Code's clarify prompt:
@@ -45,6 +46,9 @@ def main(argv):
     if "--ask" in rest:
         j = rest.index("--ask"); ask = pathlib.Path(rest[j + 1]).read_text(); rest = rest[:j] + rest[j + 2:]
         json.loads(ask)  # refuse a broken card here, not in the panel
+    app = None
+    if "--app" in rest:
+        j = rest.index("--app"); app = json.loads(rest[j + 1]); rest = rest[:j] + rest[j + 2:]
     status = "--status" in rest
     rest = [a for a in rest if a != "--status"]
     text = " ".join(rest).strip()
@@ -57,7 +61,10 @@ def main(argv):
         text += "\n[[ask:" + json.dumps(json.loads(ask), ensure_ascii=False) + "]]"
     elif buttons:
         text += "\n[[" + buttons + "]]"
-    say(sid, text, **({"kind": "status"} if status else {}))
+    extra = {"kind": "status"} if status else {}
+    if app is not None:
+        extra["app"] = app
+    say(sid, text, **extra)
     return 0
 
 

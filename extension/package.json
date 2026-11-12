@@ -1,9 +1,9 @@
 {
   "name": "vision",
   "displayName": "Vision for Claude Code",
-  "description": "Claude Code answers in 3D beside the chat: halftone worlds you walk stop by stop, click to ask about any part.",
+  "description": "Claude Code's canvas beside the chat: a 3D workspace of visuals that stays between turns, talks with you, and opens your code.",
   "publisher": "zekevoigt",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "license": "MIT",
   "engines": {
     "vscode": "^1.80.0"

@@ -1,0 +1,230 @@
+{
+ "title": "A quantum computer you can program",
+ "detail": "max",
+ "view": {
+  "yaw": 8,
+  "pitch": 6
+ },
+ "live": {
+  "file": "quantum-computer.js"
+ },
+ "world": [
+  {
+   "type": "group",
+   "id": "fridge",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.0,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "circuit",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.3,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "bloch",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.6,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "bloch-0",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      0.8999999999999999,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "amplitudes",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      1.2,
+      0,
+      0
+     ]
+    }
+   ]
+  },
+  {
+   "type": "group",
+   "id": "histogram",
+   "parts": [
+    {
+     "type": "box",
+     "size": [
+      0.1,
+      0.1,
+      0.1
+     ],
+     "at": [
+      1.5,
+      0,
+      0
+     ]
+    }
+   ]
+  }
+ ],
+ "stops": [
+  {
+   "caption": "A quantum computer, running a search",
+   "detail": "Three qubits running Grover's search for the answer 101. Every gate really acts on the quantum state, and every run ends in a measurement that lands in the histogram.",
+   "points": [
+    "Click any cell of the circuit to change its gate",
+    "Run, step, 200 shots, noise and circuits are below",
+    "← → walks through how it works"
+   ]
+  },
+  {
+   "caption": "It runs colder than outer space",
+   "focus": "fridge",
+   "detail": "These qubits are tiny superconducting circuits on a chip at the bottom of a dilution refrigerator, at about 15 thousandths of a degree above absolute zero. Any heat would knock them out of their delicate states. Gates are microwave pulses sent down these lines -- watch one run down for each gate.",
+   "points": [
+    "each plate is colder than the one above",
+    "a readout pulse comes back up after a measurement"
+   ]
+  },
+  {
+   "caption": "A qubit is an arrow, not a switch",
+   "focus": [
+    "bloch-0",
+    "circuit"
+   ],
+   "detail": "A bit is 0 or 1. A qubit's state is an arrow on a sphere: up is |0⟩, down is |1⟩, and anywhere else is a superposition of both. This circuit applies one Hadamard gate: the arrow tips from the top to the equator -- half |0⟩, half |1⟩.",
+   "points": [
+    "`|ψ⟩ = α|0⟩ + β|1⟩`, with `|α|² + |β|² = 1`",
+    "measuring gives 0 with probability |α|²"
+   ]
+  },
+  {
+   "caption": "Gates turn the arrow",
+   "focus": [
+    "circuit",
+    "bloch"
+   ],
+   "detail": "Every gate is a rotation of the sphere. X flips the arrow over, H turns it a half-turn about a tilted axis, Z spins it about the vertical, flipping the sign (phase) of |1⟩. Here X, H, Z, H runs: watch q0's arrow move with each one.",
+   "points": [
+    "on the chip, the length of a microwave pulse sets the angle",
+    "X·H·Z·H ends back at |0⟩ -- rotations undo each other"
+   ]
+  },
+  {
+   "caption": "Three qubits hold eight numbers at once",
+   "focus": "amplitudes",
+   "detail": "Three qubits don't hold one 3-bit value: they hold an amplitude for each of the 8 values, all at once. H on every qubit spreads them evenly: 12.5% each. n qubits hold 2ⁿ amplitudes -- 300 qubits would need more numbers than there are atoms in the universe.",
+   "points": [
+    "bar = probability |amplitude|²",
+    "dial = the amplitude's phase (its sign)"
+   ]
+  },
+  {
+   "caption": "Entanglement: no qubit has its own state",
+   "focus": [
+    "bloch",
+    "amplitudes"
+   ],
+   "detail": "H then CNOT makes a Bell pair: only |000⟩ and |110⟩ remain. q0 and q1 now always agree when measured, yet neither has a state of its own -- so their arrows shrink into the centre of their spheres.",
+   "points": [
+    "CNOT flips the target only when the control is 1",
+    "try 'entangle: GHZ' to tie all three together"
+   ]
+  },
+  {
+   "caption": "Interference: amplitudes can cancel",
+   "focus": [
+    "amplitudes",
+    "bloch-0"
+   ],
+   "detail": "Amplitudes are waves, not probabilities: they have signs. H makes a superposition; a second H makes the two paths to |1⟩ cancel out and the paths to |0⟩ add up -- so the qubit lands back on |0⟩ every time.",
+   "points": [
+    "two H's in a row = no change",
+    "this cancellation is what quantum algorithms are built from"
+   ]
+  },
+  {
+   "caption": "Grover's search: amplify the answer",
+   "focus": [
+    "circuit",
+    "amplitudes"
+   ],
+   "detail": "Start with all 8 values equally likely. The oracle flips the sign of the answer, 101 (watch its dial flip). The diffusion step reflects every amplitude about the average, which grows the flipped one. Twice round, 101 reaches about 95%.",
+   "points": [
+    "√N steps instead of N: about √8 ≈ 2 here",
+    "oracle: X, controlled-controlled-Z, X"
+   ]
+  },
+  {
+   "caption": "Measuring picks one answer",
+   "focus": "histogram",
+   "detail": "You never see the amplitudes, only a measurement: the state collapses to one value, chosen by the probabilities. So a quantum program is run many times and the answers counted. Press 200 shots -- 101 dominates.",
+   "points": [
+    "each run starts fresh from |000⟩",
+    "turn up noise: errors blur the histogram"
+   ]
+  },
+  {
+   "caption": "Why it's hard to build",
+   "detail": "Real qubits drift and pick up errors in microseconds -- the noise slider shows what that does. Large machines will need error correction: many physical qubits acting as one reliable logical qubit. Then a few thousand logical qubits could break problems no normal computer can."
+  }
+ ],
+ "summary": "An exact 3-qubit state-vector simulator: Hadamard, Pauli, phase and controlled gates, measurement and noise, drawn as the circuit, the Bloch spheres, the amplitudes and the measured counts, with the hardware that runs it."
+}
